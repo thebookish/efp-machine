@@ -32,7 +32,8 @@ async def broadcast_efp(session: AsyncSession):
             "bid": r.bid,
             "offer": r.offer,
             "cash_ref": r.cash_ref,
-            "watchpoint": deviation_watchpoint(r)
+            "watchpoint": deviation_watchpoint(r),
+            "expiry": classify_expiry_status(r.index_name, date.today()),  
         })
 
     # ✅ Force SX7E last
@@ -66,12 +67,12 @@ async def broadcast_efp(session: AsyncSession):
 async def broadcast_recaps(session: AsyncSession):
     rows = await session.execute(select(Recap).order_by(Recap.created_at.desc()).limit(50))
     payload = [{
-        "index_name": r.index_name,
-        "price": r.price,
-        "lots": r.lots,
-        "cash_ref": r.cash_ref,
-        "recap_text": r.recap_text,
-        "created_at": r.created_at.isoformat(),
+    "index_name": r.index_name,
+    "bid": r.bid,
+    "offer": r.offer,
+    "cash_ref": r.cash_ref,
+    "watchpoint": deviation_watchpoint(r),
+    "expiry": classify_expiry_status(r.index_name, date.today())
     } for r in rows.scalars()]
     for ws in list(RECAP_CLIENTS):
         try:
@@ -202,7 +203,6 @@ async def publish_run(req: PublishRequest, db: AsyncSession = Depends(get_db)):
     ]
     run_text = "EFP’s\n" + "\n".join(snapshot)
     return CommandResult(ok=True, detail="Run published", recap=run_text)
-
 
 @router.get("/expiry/{index}")
 async def expiry_status(index: str):

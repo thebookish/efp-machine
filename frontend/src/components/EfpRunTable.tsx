@@ -5,8 +5,14 @@ type RunRow = {
   bid: number | null;
   offer: number | null;
   cash_ref: number | null;
-  watchpoint?: boolean;
+  watchpoint: boolean;
+  expiry: {
+    index: string;
+    status: string;
+    expiry_date: string | null;
+  };
 };
+
 
 type Recap = {
   index_name: string;
@@ -47,31 +53,44 @@ export default function EfpRunTable() {
         </div>
       </div>
       <table className="w-full text-sm text-gray-200">
-        <thead className="border-b border-gray-700">
-          <tr>
-            <th className="text-left p-2">Index</th>
-            <th className="text-left p-2">Bid</th>
-            <th className="text-left p-2">Offer</th>
-            <th className="text-left p-2">Cash Ref</th>
-            <th className="text-left p-2">Watchpoint</th>
-          </tr>
-        </thead>
-        <tbody>
+    <thead className="border-b border-gray-700">
+      <tr>
+        <th className="text-left p-2">Index</th>
+        <th className="text-left p-2">Bid</th>
+        <th className="text-left p-2">Offer</th>
+        <th className="text-left p-2">Cash Ref</th>
+        <th className="text-left p-2">Watchpoint</th>
+        <th className="text-left p-2">Expiry</th>
+      </tr>
+    </thead>
+    <tbody>
           {runRows.map((r, i) => (
-            <tr key={i} className="border-b border-gray-700">
-              <td className="p-2">{r.index_name}</td>
-              <td className="p-2">{r.bid ?? "-"}</td>
-              <td className="p-2">{r.offer ?? "-"}</td>
-              <td className="p-2">{r.cash_ref ?? "-"}</td>
-              <td className="p-2">
-                {r.watchpoint ? (
-                  <span className="text-red-500 font-bold">⚠</span>
-                ) : (
-                  "-"
-                )}
-              </td>
-            </tr>
-          ))}
+    <tr key={i} className="border-b border-gray-700">
+      <td className="p-2">{r.index_name}</td>
+      <td className="p-2">{r.bid ?? "-"}</td>
+      <td className="p-2">{r.offer ?? "-"}</td>
+      <td className="p-2">{r.cash_ref ?? "-"}</td>
+      <td className="p-2">
+        {r.watchpoint ? (
+          <span className="text-red-500 font-bold">⚠</span>
+        ) : (
+          "-"
+        )}
+      </td>
+  <td className="p-2">
+    {r.expiry.status === "Expired" && (
+      <span className="text-red-500 font-semibold">Expired ({r.expiry.expiry_date})</span>
+    )}
+    {r.expiry.status === "In expiry window" && (
+      <span className="text-yellow-400 font-semibold">In window ({r.expiry.expiry_date})</span>
+    )}
+    {r.expiry.status === "Pending" && (
+      <span className="text-green-400 font-semibold">Pending ({r.expiry.expiry_date})</span>
+    )}
+  </td>
+
+    </tr>
+  ))}
           {runRows.length === 0 && (
             <tr>
               <td colSpan={5} className="p-3 text-center text-gray-500">

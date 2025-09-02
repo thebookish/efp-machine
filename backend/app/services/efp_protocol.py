@@ -84,27 +84,35 @@ def third_friday(year: int, month: int) -> date:
     return d + timedelta(days=14)
 
 
+
 def classify_expiry_status(index: str, today: date) -> dict:
-    """Return expiry classification for given index as of today."""
-    index = index.upper()
-    year, month = today.year, today.month
+    """Return expiry classification and expiry date for an index."""
+    month = today.month
+    year = today.year
 
+    expiry_date = None
+    status = "Pending"
+
+    # Quarterly → only March, June, Sept, Dec
     if index in QUARTERLY:
-        # Quarter months: Mar, Jun, Sep, Dec
-        q_months = [3, 6, 9, 12]
-        # find the next quarter month >= current
-        next_month = min((m for m in q_months if m >= month), default=3)
-        exp_date = third_friday(year, next_month)
+        if month not in (3, 6, 9, 12):
+            return {"index": index, "status": "Pending", "expiry_date": None}
     elif index in MONTHLY:
-        exp_date = third_friday(year, month)
+        pass  # applies to all months
     else:
-        return {"index": index, "status": "unknown", "expiry_date": None}
+        return {"index": index, "status": "Pending", "expiry_date": None}
 
-    if today > exp_date:
+    expiry_date = third_friday(year, month)
+
+    if today > expiry_date:
         status = "Expired"
-    elif today == exp_date:
+    elif today == expiry_date:
         status = "In expiry window"
     else:
         status = "Pending"
 
-    return {"index": index, "status": status, "expiry_date": exp_date.isoformat()}
+    return {
+        "index": index,
+        "status": status,
+        "expiry_date": expiry_date.isoformat(),
+    }
