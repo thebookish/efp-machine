@@ -4,6 +4,7 @@ import RecapLog from "./components/RecapLog";
 import ChatPanel from "./components/ChatPanel";
 // import RatesPanel from "./components/RatesPanel";
 import MarketValuesPanel from "./components/MarketValuesPanel";
+import PredictionPanel from "./components/PredictionPanel";
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
           <AtomicClock />
           {/* <RatesPanel /> */}
           {/* <MarketValuesPanel /> */}
+         
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-1">
@@ -22,6 +24,9 @@ export default function App() {
             <EfpRunTable />
             {/* <RecapLog /> */}
           </div>
+        </div>
+        <div className="md:col-span-2 space-y-6">
+           <PredictionPanel/>
         </div>
       </div>
     </div>

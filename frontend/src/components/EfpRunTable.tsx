@@ -55,9 +55,8 @@ export default function EfpRunTable() {
       <table className="w-full text-sm text-gray-200">
     <thead className="border-b border-gray-700">
       <tr>
-        <th className="text-left p-2">Index</th>
-        <th className="text-left p-2">Bid</th>
-        <th className="text-left p-2">Offer</th>
+        <th className="text-left p-2">EFP's</th>
+        <th className="text-left p-2">Price</th>
         <th className="text-left p-2">Cash Ref</th>
         <th className="text-left p-2">Watchpoint</th>
         <th className="text-left p-2">Expiry</th>
@@ -66,9 +65,9 @@ export default function EfpRunTable() {
     <tbody>
           {runRows.map((r, i) => (
     <tr key={i} className="border-b border-gray-700">
-      <td className="p-2">{r.index_name}</td>
-      <td className="p-2">{r.bid ?? "-"}</td>
-      <td className="p-2">{r.offer ?? "-"}</td>
+      <td className="p-2">{r.index_name +"  EFP"} </td>
+      <td className="p-2">{(r.bid ?? "-")+" / " + (r.offer ?? "-")}</td>
+      {/* <td className="p-2">{r.offer ?? "-"}</td> */}
       <td className="p-2">{r.cash_ref ?? "-"}</td>
       <td className="p-2">
         {r.watchpoint ? (

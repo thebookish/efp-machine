@@ -1,4 +1,5 @@
 # backend/app/routers/efp.py
+from app.services.scheduler import get_last_prediction, publish_prediction
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
@@ -219,3 +220,12 @@ async def get_market_values():
     if all(v is None for v in latest_market_values.values()):
         await fetch_market_values()
     return latest_market_values
+
+@router.get("/prediction")
+async def get_prediction():
+    return get_last_prediction() or {"detail": "No prediction yet"}
+
+@router.post("/prediction/run-now")
+async def run_prediction_now():
+    await publish_prediction()
+    return {"detail": "Prediction run executed manually"}

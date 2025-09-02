@@ -11,12 +11,16 @@ def to_async_url(url_str: str) -> str:
     elif u.drivername.startswith("postgresql"):
         u = u.set(drivername="postgresql+asyncpg")
     return str(u)
+async_url = settings.DATABASE_URL
 
-ASYNC_DB_URL = to_async_url(settings.DATABASE_URL)
-
-engine = create_async_engine(ASYNC_DB_URL, echo=False, future=True)
+engine = create_async_engine(async_url, echo=False, future=True)
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-async def get_db():
+async def get_db() -> AsyncSession:
+    async with AsyncSessionLocal() as session:
+        yield session
+# add this near the bottom of deps.py
+async def create_session() -> AsyncSession:
+    """Utility for background jobs (non-request context)."""
     async with AsyncSessionLocal() as session:
         yield session
