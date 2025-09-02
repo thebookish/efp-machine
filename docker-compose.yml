@@ -1,0 +1,49 @@
+version: '3.9'
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: efp
+      POSTGRES_PASSWORD: efp
+      POSTGRES_DB: efpdb
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+
+  backend:
+    build: ./backend
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - db
+    ports:
+      - '8000:8000'
+    volumes:
+      - ./backend:/app
+    command: >
+      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  frontend:
+    build: ./frontend
+    ports:
+      - '5173:5173'
+    environment:
+      - VITE_API_BASE=http://localhost:8000
+    volumes:
+      - ./frontend:/usr/src/app
+    command: ['pnpm','dev','--host','0.0.0.0']
+
+  nginx:
+    build: ./reverse-proxy
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - '80:80'
+    environment:
+      - API_HOST=backend:8000
+      - WEB_HOST=frontend:5173
+
+volumes:
+  dbdata:
