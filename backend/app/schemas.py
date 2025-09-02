@@ -1,11 +1,26 @@
-from pydantic import BaseModel, Field
+# backend/app/schemas.py
+from pydantic import BaseModel,Field
 from typing import Optional
 
-class EfpRow(BaseModel):
-    index: str = Field(..., alias='index_name')
-    bid: Optional[float] = None
-    offer: Optional[float] = None
-    cash_ref: Optional[float] = None
+
+# -------- Trades --------
+class TradeRequest(BaseModel):
+    index: str
+    price: float
+    lots: int
+    cash_ref: float
+
+
+class TradeResponse(BaseModel):
+    id: int
+    index: str
+    price: float
+    lots: int
+    cash_ref: float
+    status: str
+
+
+# -------- EFP Price Update --------
 
 class UpdatePriceRequest(BaseModel):
     index: str
@@ -14,15 +29,47 @@ class UpdatePriceRequest(BaseModel):
     cash_ref: Optional[float] = None
     dean_confirm: bool = False
 
-class TradeRequest(BaseModel):
+
+# -------- Cash Ref --------
+class CashRefRequest(BaseModel):
     index: str
-    price: float
-    lots: int
+    cash_ref: float
+
+
+# -------- Propose Mid --------
+class ProposeMidRequest(BaseModel):
+    index: str
+    mid: float
+    width: Optional[float] = None
+
+
+# -------- Confirm Worsening --------
+class ConfirmRequest(BaseModel):
+    index: str
+    note: Optional[str] = None
+
+
+# -------- Publish Run --------
+class PublishRequest(BaseModel):
+    name: str
+
+
+# -------- Expiry --------
+class ExpiryRequest(BaseModel):
+    index: str
+    date: str   # ISO date string
+
+
+# -------- Generic Recap --------
+class RecapRequest(BaseModel):
+    text: str
+
+class EfpRow(BaseModel):
+    index: str = Field(..., alias='index_name')
+    bid: Optional[float] = None
+    offer: Optional[float] = None
     cash_ref: Optional[float] = None
-
-class AiUserMessage(BaseModel):
-    message: str
-
+    
 class CommandResult(BaseModel):
     ok: bool
     detail: str

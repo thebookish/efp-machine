@@ -14,9 +14,10 @@ export default function RecapLog() {
   }, []);
 
   return (
-    <div className="p-4 bg-white shadow rounded-2xl">
-      <h2 className="text-xl font-bold mb-2">Trade Recap</h2>
-      <ul className="space-y-2">
+   <div className="p-4 bg-gray-900 shadow rounded-2xl">
+  <h2 className="text-xl font-bold mb-2 text-sky-400">Trade Recap</h2>
+  <ul className="space-y-2 text-gray-200">
+
         {rows.map((r, i) => (
           <li key={i} className="text-sm">
             <span className="font-semibold">{r.index_name}</span>: {r.recap_text}

@@ -19,9 +19,10 @@ export default function AtomicClock() {
     return () => clearInterval(id);
   }, []);
 
-  return (
-    <div className="p-3 bg-white rounded-2xl shadow text-sm">
-      <span className="font-semibold">UK Atomic Clock:</span> {now} BST
-    </div>
-  );
+ return (
+  <div className="p-3 bg-gray-900 rounded-2xl shadow text-sm">
+    <span className="font-semibold text-sky-400">UK Atomic Clock:</span> {now} BST
+  </div>
+);
+
 }
