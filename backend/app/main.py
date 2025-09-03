@@ -25,7 +25,9 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(efp.router)
 app.include_router(ai.router)
-
+@app.get("/")
+async def root():
+    return {"message": "EFP Machine backend is running"}
 
 @app.on_event("startup")
 
