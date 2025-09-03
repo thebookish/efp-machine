@@ -16,6 +16,6 @@ orjson
 websockets
 starlette
 python-dateutil
-uvicorn
+gunicorn
 greenlet
 yfinance
