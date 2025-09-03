@@ -1,4 +1,5 @@
 # backend/app/routers/ai.py
+from app.services.market import get_quote
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.deps import get_db
@@ -11,10 +12,11 @@ import json
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
+# ✅ System prompt
 SYSTEM_PROMPT = (
     "You are the EFP Machine assistant. "
-    "Always decide between calling update_price or trade. "
-    "Do not output free text."
+    "You may only respond with valid tool calls (update_price, trade, or get_quote). "
+    "Never guess or assume missing values. "
 )
 
 @router.post("/chat")
@@ -62,12 +64,25 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                         },
                     },
                 },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "get_quote",
+                        "description": "Fetch last price from Yahoo Finance",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "symbol": {"type": "string", "description": "Ticker symbol, e.g., ^STOXX50E"},
+                            },
+                            "required": ["symbol"],
+                        },
+                    },
+                },
             ],
         )
 
         choice = resp.choices[0]
 
-        # ✅ correct: tool calls are on choice.message
         if choice.finish_reason == "tool_calls" and choice.message.tool_calls:
             tool_call = choice.message.tool_calls[0]
             name = tool_call.function.name
@@ -77,10 +92,19 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                 return await update_price(UpdatePriceRequest(**args), db)
             elif name == "trade":
                 return await trade(TradeRequest(**args), db)
+            elif name == "get_quote":
+                result = await get_quote(**args)
+                if "error" in result:
+                    return {"reply": f"Could not fin data for {result['symbol']}"}
+
+                reply = (
+                    f"{result['symbol']} – "
+                    f"Last Price: {result['last_price']} {result.get('currency','')}"
+                )
+                return {"reply": reply}
             else:
                 return {"reply": f"Unknown tool call: {name}"}
 
-        # fallback if model gives text
         return {"reply": choice.message.content}
 
     except Exception as e:
