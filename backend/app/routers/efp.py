@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from datetime import date
 import asyncio
-from app.services.market import fetch_market_values, latest_market_values
 from app.deps import get_db
 from app.schemas import (
     UpdatePriceRequest,
@@ -251,20 +250,6 @@ async def publish_run(req: PublishRequest, db: AsyncSession = Depends(get_db)):
 @router.get("/expiry/{index}")
 async def expiry_status(index: str):
     return classify_expiry_status(index.upper(), date.today())
-
-
-@router.get("/rates")
-async def get_rates():
-    from app.services.market import latest_rates
-
-    return latest_rates
-
-
-@router.get("/market-values")
-async def get_market_values():
-    if all(v is None for v in latest_market_values.values()):
-        await fetch_market_values()
-    return latest_market_values
 
 
 @router.get("/prediction")
