@@ -4,11 +4,17 @@ from app.services.efp_run import fetch_daily_efp_run
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
-from datetime import datetime, date
+from datetime import date
 import asyncio
 from app.services.market import fetch_market_values, latest_market_values
 from app.deps import get_db
-from app.schemas import UpdatePriceRequest, TradeRequest, CommandResult, ConfirmRequest, PublishRequest
+from app.schemas import (
+    UpdatePriceRequest,
+    TradeRequest,
+    CommandResult,
+    ConfirmRequest,
+    PublishRequest,
+)
 from app.models import EfpRun, Recap
 from app.services.efp_protocol import (
     is_worsening,
@@ -29,14 +35,16 @@ async def broadcast_efp(session: AsyncSession):
     rows = await session.execute(select(EfpRun))
     payload = []
     for r in rows.scalars():
-        payload.append({
-            "index_name": r.index_name,
-            "bid": r.bid,
-            "offer": r.offer,
-            "cash_ref": r.cash_ref,
-            "watchpoint": deviation_watchpoint(r),
-            "expiry": classify_expiry_status(r.index_name, date.today()),  
-        })
+        payload.append(
+            {
+                "index_name": r.index_name,
+                "bid": r.bid,
+                "offer": r.offer,
+                "cash_ref": r.cash_ref,
+                "watchpoint": deviation_watchpoint(r),
+                "expiry": classify_expiry_status(r.index_name, date.today()),
+            }
+        )
 
     # ✅ Force SX7E last
     payload.sort(key=lambda r: (r["index_name"] == "SX7E", r["index_name"]))
@@ -45,19 +53,19 @@ async def broadcast_efp(session: AsyncSession):
     recaps = await session.execute(
         select(Recap).order_by(Recap.created_at.desc()).limit(20)
     )
-    recap_rows = [{
-        "index_name": rr.index_name,
-        "price": rr.price,
-        "lots": rr.lots,
-        "cash_ref": rr.cash_ref,
-        "recap_text": rr.recap_text,
-        "created_at": rr.created_at.isoformat(),
-    } for rr in recaps.scalars()]
+    recap_rows = [
+        {
+            "index_name": rr.index_name,
+            "price": rr.price,
+            "lots": rr.lots,
+            "cash_ref": rr.cash_ref,
+            "recap_text": rr.recap_text,
+            "created_at": rr.created_at.isoformat(),
+        }
+        for rr in recaps.scalars()
+    ]
 
-    block = {
-        "run": payload,
-        "recaps": recap_rows,
-    }
+    block = {"run": payload, "recaps": recap_rows}
 
     for ws in list(EFP_CLIENTS):
         try:
@@ -67,14 +75,20 @@ async def broadcast_efp(session: AsyncSession):
 
 
 async def broadcast_recaps(session: AsyncSession):
-    rows = await session.execute(select(Recap).order_by(Recap.created_at.desc()).limit(50))
-    payload = [{
-    "price": r.price,
-    "lots": r.lots,
-    "cash_ref": r.cash_ref,
-    "watchpoint": deviation_watchpoint(r),
-    "expiry": classify_expiry_status(r.index_name, date.today())
-    } for r in rows.scalars()]
+    rows = await session.execute(
+        select(Recap).order_by(Recap.created_at.desc()).limit(50)
+    )
+    payload = [
+        {
+            "index_name": r.index_name,
+            "price": r.price,
+            "lots": r.lots,
+            "cash_ref": r.cash_ref,
+            "recap_text": r.recap_text,
+            "created_at": r.created_at.isoformat(),
+        }
+        for r in rows.scalars()
+    ]
     for ws in list(RECAP_CLIENTS):
         try:
             await ws.send_json(payload)
@@ -113,13 +127,16 @@ async def ws_recaps(ws: WebSocket, db: AsyncSession = Depends(get_db)):
 async def get_run(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(EfpRun).order_by(EfpRun.index_name))
     rows = result.scalars().all()
-    return [{
-        "index_name": r.index_name,
-        "bid": r.bid,
-        "offer": r.offer,
-        "cash_ref": r.cash_ref,
-        "watchpoint": deviation_watchpoint(r)
-    } for r in rows]
+    return [
+        {
+            "index_name": r.index_name,
+            "bid": r.bid,
+            "offer": r.offer,
+            "cash_ref": r.cash_ref,
+            "watchpoint": deviation_watchpoint(r),
+        }
+        for r in rows
+    ]
 
 
 @router.post("/update", response_model=CommandResult)
@@ -128,20 +145,36 @@ async def update_price(req: UpdatePriceRequest, db: AsyncSession = Depends(get_d
     row = res.scalar_one_or_none()
 
     if row is None:
-        row = EfpRun(index_name=req.index, bid=req.bid, offer=req.offer, cash_ref=req.cash_ref)
+        row = EfpRun(
+            index_name=req.index, bid=req.bid, offer=req.offer, cash_ref=req.cash_ref
+        )
         db.add(row)
         await db.commit()
         await broadcast_efp(db)
-        return CommandResult(ok=True, detail="Created new row", requires_cash_ref=(req.cash_ref is None))
+        return CommandResult(
+            ok=True, detail="Created new row", requires_cash_ref=(req.cash_ref is None)
+        )
 
     requires_confirmation = False
-    if req.bid is not None and is_worsening(row.bid, req.bid, "bid") and not req.dean_confirm:
+    if (
+        req.bid is not None
+        and is_worsening(row.bid, req.bid, "bid")
+        and not req.dean_confirm
+    ):
         requires_confirmation = True
-    if req.offer is not None and is_worsening(row.offer, req.offer, "offer") and not req.dean_confirm:
+    if (
+        req.offer is not None
+        and is_worsening(row.offer, req.offer, "offer")
+        and not req.dean_confirm
+    ):
         requires_confirmation = True
 
     if requires_confirmation:
-        return CommandResult(ok=False, detail="Worsening detected; Dean confirmation required.", requires_confirmation=True)
+        return CommandResult(
+            ok=False,
+            detail="Worsening detected; Dean confirmation required.",
+            requires_confirmation=True,
+        )
 
     if req.bid is not None:
         row.bid = req.bid
@@ -153,7 +186,11 @@ async def update_price(req: UpdatePriceRequest, db: AsyncSession = Depends(get_d
     await db.commit()
     await broadcast_efp(db)
 
-    return CommandResult(ok=True, detail="Updated", requires_cash_ref=require_cash_ref_on_update(row.cash_ref, req.cash_ref))
+    return CommandResult(
+        ok=True,
+        detail="Updated",
+        requires_cash_ref=require_cash_ref_on_update(row.cash_ref, req.cash_ref),
+    )
 
 
 @router.post("/trade", response_model=CommandResult)
@@ -168,7 +205,15 @@ async def trade(req: TradeRequest, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Cash reference required")
 
     recap_text = format_recap(req.index, req.price, req.lots, cash_ref)
-    db.add(Recap(index_name=req.index, price=req.price, lots=req.lots, cash_ref=cash_ref, recap_text=recap_text))
+    db.add(
+        Recap(
+            index_name=req.index,
+            price=req.price,
+            lots=req.lots,
+            cash_ref=cash_ref,
+            recap_text=recap_text,
+        )
+    )
     await db.commit()
 
     await broadcast_efp(db)
@@ -198,32 +243,34 @@ async def publish_run(req: PublishRequest, db: AsyncSession = Depends(get_db)):
     # just snapshot the run
     result = await db.execute(select(EfpRun).order_by(EfpRun.index_name))
     rows = result.scalars().all()
-    snapshot = [
-        f"{r.index_name} {r.bid}/{r.offer} {r.cash_ref}"
-        for r in rows
-    ]
+    snapshot = [f"{r.index_name} {r.bid}/{r.offer} {r.cash_ref}" for r in rows]
     run_text = "EFP’s\n" + "\n".join(snapshot)
     return CommandResult(ok=True, detail="Run published", recap=run_text)
+
 
 @router.get("/expiry/{index}")
 async def expiry_status(index: str):
     return classify_expiry_status(index.upper(), date.today())
 
+
 @router.get("/rates")
 async def get_rates():
     from app.services.market import latest_rates
+
     return latest_rates
+
 
 @router.get("/market-values")
 async def get_market_values():
-    # Always fetch once if all are None
     if all(v is None for v in latest_market_values.values()):
         await fetch_market_values()
     return latest_market_values
 
+
 @router.get("/prediction")
 async def get_prediction():
     return get_last_prediction() or {"detail": "No prediction yet"}
+
 
 @router.post("/prediction/run-now")
 async def run_prediction_now():

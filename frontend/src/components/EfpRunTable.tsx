@@ -24,7 +24,8 @@ type Payload = {
 export default function EfpRunTable() {
   const [runRows, setRunRows] = useState<RunRow[]>([]);
   const [recaps, setRecaps] = useState<Recap[]>([]);
-  const [copied, setCopied] = useState(false);
+  const [copiedRun, setCopiedRun] = useState(false);
+  const [copiedRecaps, setCopiedRecaps] = useState(false);
 
   useEffect(() => {
     // --- 1. Load the latest snapshot immediately (REST fetch) ---
@@ -80,10 +81,34 @@ export default function EfpRunTable() {
 
     try {
       await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopiedRun(true);
+      setTimeout(() => setCopiedRun(false), 2000);
     } catch (err) {
-      console.error("Failed to copy:", err);
+      console.error("Failed to copy run:", err);
+    }
+  };
+
+  const copyRecaps = async () => {
+    if (recaps.length === 0) return;
+
+    const header = "Trade Recaps";
+    const rows = recaps
+      .map(
+        (r) =>
+          `${r.index_name} → ${r.recap_text} (${new Date(
+            r.created_at
+          ).toLocaleTimeString()})`
+      )
+      .join("\n");
+
+    const text = `${header}\n${rows}`;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedRecaps(true);
+      setTimeout(() => setCopiedRecaps(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy recaps:", err);
     }
   };
 
@@ -96,7 +121,7 @@ export default function EfpRunTable() {
           onClick={copyRun}
           className="px-3 py-1 text-sm bg-sky-600 hover:bg-sky-700 rounded-lg text-white"
         >
-          {copied ? "Copied!" : "Copy Run"}
+          {copiedRun ? "Copied!" : "Copy Run"}
         </button>
       </div>
       <div className="text-xs text-gray-400 mb-2">
@@ -133,7 +158,17 @@ export default function EfpRunTable() {
 
       {/* --- Inline Recaps --- */}
       <div className="mt-4">
-        <h3 className="text-lg font-semibold text-sky-400 mb-2">Trade Recaps</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-sky-400 mb-2">
+            Trade Recaps
+          </h3>
+          <button
+            onClick={copyRecaps}
+            className="px-3 py-1 text-sm bg-sky-600 hover:bg-sky-700 rounded-lg text-white"
+          >
+            {copiedRecaps ? "Copied!" : "Copy Recaps"}
+          </button>
+        </div>
         {recaps.length === 0 ? (
           <div className="text-gray-500 text-sm">No trades yet.</div>
         ) : (

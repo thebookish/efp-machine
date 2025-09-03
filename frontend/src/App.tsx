@@ -17,9 +17,9 @@ export default function App() {
          
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-1">
-            <ChatPanel />
-          </div>
+<div className="md:col-span-1 h-[400px] flex flex-col">
+  <ChatPanel />
+</div>
           <div className="md:col-span-2 space-y-6">
             <EfpRunTable />
             {/* <RecapLog /> */}
