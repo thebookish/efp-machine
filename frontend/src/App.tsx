@@ -26,7 +26,7 @@ export default function App() {
           </div>
         </div>
         <div className="md:col-span-2 space-y-6">
-           <PredictionPanel/>
+           {/* <PredictionPanel/> */}
         </div>
       </div>
     </div>

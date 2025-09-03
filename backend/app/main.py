@@ -1,4 +1,5 @@
 # backend/app/main.py
+from app.services.efp_run import fetch_daily_efp_run
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
@@ -27,5 +28,11 @@ app.include_router(ai.router)
 
 
 @app.on_event("startup")
+
 async def startup_event():
     start_scheduler()
+    # Ensure tables exist
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    # Auto-generate daily EFP run if DB empty
+    await fetch_daily_efp_run()

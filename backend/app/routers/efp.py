@@ -1,5 +1,6 @@
 # backend/app/routers/efp.py
 from app.services.scheduler import get_last_prediction, publish_prediction
+from app.services.efp_run import fetch_daily_efp_run
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
@@ -68,9 +69,8 @@ async def broadcast_efp(session: AsyncSession):
 async def broadcast_recaps(session: AsyncSession):
     rows = await session.execute(select(Recap).order_by(Recap.created_at.desc()).limit(50))
     payload = [{
-    "index_name": r.index_name,
-    "bid": r.bid,
-    "offer": r.offer,
+    "price": r.price,
+    "lots": r.lots,
     "cash_ref": r.cash_ref,
     "watchpoint": deviation_watchpoint(r),
     "expiry": classify_expiry_status(r.index_name, date.today())
@@ -229,3 +229,9 @@ async def get_prediction():
 async def run_prediction_now():
     await publish_prediction()
     return {"detail": "Prediction run executed manually"}
+
+
+@router.get("/daily-run")
+async def get_daily_run():
+    rows = await fetch_daily_efp_run()
+    return rows
