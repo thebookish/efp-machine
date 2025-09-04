@@ -199,8 +199,8 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                 if "detail" in result:
                     return {"reply": result["detail"]}
                 reply = (
-                    f"Best bid for {result['index']} is {result['best_bid']} (from {result['best_bid_client']}), "
-                    f"best offer is {result['best_offer']} (from {result['best_offer_client']})."
+                    f"Best bid for {result['index']} is {result['best_bid']}, "
+                    f"best offer is {result['best_offer']}."
                 )
                 return {"reply": reply}
 
