@@ -126,16 +126,15 @@ async def ws_recaps(ws: WebSocket, db: AsyncSession = Depends(get_db)):
 async def get_run(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(EfpRun).order_by(EfpRun.index_name))
     rows = result.scalars().all()
-    return [
-        {
-            "index_name": r.index_name,
-            "bid": r.bid,
-            "offer": r.offer,
-            "cash_ref": r.cash_ref,
-            "watchpoint": deviation_watchpoint(r),
-        }
-        for r in rows
-    ]
+    return [{
+        "index_name": r.index_name,
+        "bid": r.bid,
+        "offer": r.offer,
+        "cash_ref": r.cash_ref,
+        "watchpoint": deviation_watchpoint(r),
+        "expiry": classify_expiry_status(r.index_name, date.today())  # ✅ added
+    } for r in rows]
+
 
 
 @router.post("/update", response_model=CommandResult)
