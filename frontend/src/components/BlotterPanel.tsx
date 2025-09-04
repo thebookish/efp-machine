@@ -45,8 +45,8 @@ export default function BlotterPanel() {
 
   useEffect(() => {
     fetchTrades();
-    const interval = setInterval(fetchTrades, 5000); // auto-refresh
-    return () => clearInterval(interval);
+    // const interval = setInterval(fetchTrades, 5000); // auto-refresh
+    // return () => clearInterval(interval);
   }, []);
 
   return (
