@@ -139,13 +139,13 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
             name = tool_call.function.name
             args = json.loads(tool_call.function.arguments)
 
-            # ✅ Restrict indices
-            idx = args.get("index") or args.get("index_name") or args.get("symbol")
-            if idx and idx.upper() not in ALLOWED_INDICES and name != "get_quote":
-                return {
-                    "reply": f"Sorry, I can only handle approved indices: {', '.join(sorted(ALLOWED_INDICES))}.",
-                    "session_id": session_id,
-                }
+            # # ✅ Restrict indices
+            # idx = args.get("index") or args.get("index_name") or args.get("symbol")
+            # if idx and idx.upper() not in ALLOWED_INDICES and name != "get_quote":
+            #     return {
+            #         "reply": f"Sorry, I can only handle approved indices: {', '.join(sorted(ALLOWED_INDICES))}.",
+            #         "session_id": session_id,
+            #     }
 
             if name == "update_price":
                 if args.get("bid") is None and args.get("offer") is None:
