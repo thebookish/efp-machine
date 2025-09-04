@@ -1,3 +1,4 @@
+# backend/app/routers/ai.py
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.deps import get_db
@@ -5,8 +6,8 @@ from app.schemas import TradeRequest, UpdatePriceRequest, BlotterTradeBase, Blot
 from app.routers.efp import update_price, trade
 from app.routers.blotter import add_trade as blotter_add, remove_trade as blotter_remove
 from app.services.market import get_quote
-from app.config import settings
 from app.routers.quotes import get_bbo
+from app.config import settings
 from openai import OpenAI
 import json
 import uuid
@@ -24,10 +25,9 @@ ALLOWED_INDICES = {
 
 SYSTEM_PROMPT = (
     "You are the EFP Machine assistant. "
-    "You may only respond with tool calls (update_price, trade, get_quote, blotter_add, blotter_remove). "
+    "You may only respond with tool calls (update_price, trade, get_quote, blotter_add, blotter_remove, get_bbo). "
     "Keep track of context across the conversation. "
     "Never guess or assume missing values. "
- 
 )
 
 
@@ -139,7 +139,6 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                         },
                     },
                 },
-
             ],
         )
 
@@ -155,63 +154,59 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
             name = tool_call.function.name
             args = json.loads(tool_call.function.arguments)
 
-            # # ✅ Restrict indices
-            # idx = args.get("index") or args.get("index_name") or args.get("symbol")
-            # if idx and idx.upper() not in ALLOWED_INDICES and name != "get_quote":
-            #     return {
-            #         "reply": f"Sorry, I can only handle approved indices: {', '.join(sorted(ALLOWED_INDICES))}.",
-            #         "session_id": session_id,
-            #     }
-
+            # Run the tool
             if name == "update_price":
-                # Detect if user said confirm
                 if "confirm" in query["message"].lower():
                     args["dean_confirm"] = True
-            
                 if args.get("bid") is None and args.get("offer") is None:
                     return {"reply": f"Please specify at least a bid or offer for {args.get('index','the index')}."}
                 if args.get("cash_ref") is None:
                     return {"reply": f"Please provide the cash reference level for {args.get('index','the index')}."}
-                return await update_price(UpdatePriceRequest(**args), db)
-
+                result = await update_price(UpdatePriceRequest(**args), db)
 
             elif name == "trade":
                 if not all(k in args for k in ("index", "price", "lots", "cash_ref")):
-                    return {"reply": f"Please provide full trade details (index, price, lots, cash_ref)."}
-                return await trade(TradeRequest(**args), db)
+                    return {"reply": "Please provide full trade details (index, price, lots, cash_ref)."}
+                result = await trade(TradeRequest(**args), db)
 
             elif name == "get_quote":
                 result = await get_quote(**args)
                 if "error" in result:
-                    return {"reply": f"Could not fetch data for {result['symbol']}."}
-                return {
-                    "reply": f"{result['symbol']} (mapped {result['mapped_symbol']}) – Last Price {result['last_price']} {result.get('currency','')}",
-                    "session_id": session_id,
-                }
+                    result = {"reply": f"Could not fetch data for {result['symbol']}."}
+                else:
+                    result = {
+                        "reply": f"{result['symbol']} (mapped {result['mapped_symbol']}) – "
+                                 f"Last Price {result['last_price']} {result.get('currency','')}"
+                    }
 
             elif name == "blotter_add":
-                if not all(k in args for k in ("side", "index_name", "qty", "price")):
-                    return {"reply": "Please provide side, index_name, qty, and price for blotter trades."}
-                return await blotter_add(BlotterTradeBase(**args), db)
+                result = await blotter_add(BlotterTradeBase(**args), db)
 
             elif name == "blotter_remove":
-                if not args.get("trade_id"):
-                    return {"reply": "Please provide the trade_id to remove."}
-                return await blotter_remove(BlotterRemoveRequest(**args), db)
-           
+                result = await blotter_remove(BlotterRemoveRequest(**args), db)
+
             elif name == "get_bbo":
                 result = await get_bbo(args["index"])
                 if "detail" in result:
-                    return {"reply": result["detail"]}
-                reply = (
-                    f"Best bid for {result['index']} is {result['best_bid']}, "
-                    f"best offer is {result['best_offer']}."
-                )
-                return {"reply": reply}
-
+                    result = {"reply": result["detail"]}
+                else:
+                    result = {
+                        "reply": f"Best bid for {result['index']} is {result['best_bid']}, "
+                                 f"best offer is {result['best_offer']}."
+                    }
 
             else:
-                return {"reply": f"Unknown tool call: {name}", "session_id": session_id}
+                result = {"reply": f"Unknown tool call: {name}"}
+
+            # ✅ Append tool result into conversation
+            CONVERSATIONS[session_id].append({
+                "role": "tool",
+                "tool_call_id": tool_call.id,
+                "name": name,
+                "content": json.dumps(result),
+            })
+
+            return {**result, "session_id": session_id}
 
         # --- 4. Fallback: plain text reply ---
         return {"reply": choice.message.content, "session_id": session_id}
