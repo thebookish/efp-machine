@@ -1,5 +1,7 @@
+# backend/app/routers/ai.py
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi.encoders import jsonable_encoder
 from app.deps import get_db
 from app.schemas import (
     TradeRequest,
@@ -23,15 +25,24 @@ client = OpenAI(api_key=settings.OPENAI_API_KEY)
 CONVERSATIONS = {}
 
 ALLOWED_INDICES = {
-    "SX5E", "FTSE", "DAX", "SMI", "MIB",
-    "CAC", "IBEX", "AEX", "OMX", "SX7E", "SX7E CC"
+    "SX5E",
+    "FTSE",
+    "DAX",
+    "SMI",
+    "MIB",
+    "CAC",
+    "IBEX",
+    "AEX",
+    "OMX",
+    "SX7E",
+    "SX7E CC",
 }
 
 SYSTEM_PROMPT = (
     "You are the EFP Machine assistant. "
     "You may only respond with tool calls (update_price, trade, get_quote, blotter_add, blotter_remove, get_bbo). "
     "Keep track of context across the conversation. "
-    "Never guess or assume missing values. "
+    "Never guess or assume missing values."
 )
 
 
@@ -41,8 +52,12 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
         # --- 1. Manage conversation memory ---
         session_id = query.get("session_id") or str(uuid.uuid4())
         if session_id not in CONVERSATIONS:
-            CONVERSATIONS[session_id] = [{"role": "system", "content": SYSTEM_PROMPT}]
-        CONVERSATIONS[session_id].append({"role": "user", "content": query["message"]})
+            CONVERSATIONS[session_id] = [
+                {"role": "system", "content": SYSTEM_PROMPT}
+            ]
+        CONVERSATIONS[session_id].append(
+            {"role": "user", "content": query["message"]}
+        )
 
         # --- 2. Ask OpenAI ---
         resp = client.chat.completions.create(
@@ -136,9 +151,7 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                         "description": "Get the best bid/offer for an index from client quotes",
                         "parameters": {
                             "type": "object",
-                            "properties": {
-                                "index": {"type": "string"}
-                            },
+                            "properties": {"index": {"type": "string"}},
                             "required": ["index"],
                         },
                     },
@@ -163,15 +176,23 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                 if "confirm" in query["message"].lower():
                     args["dean_confirm"] = True
                 if args.get("bid") is None and args.get("offer") is None:
-                    return {"reply": f"Please specify at least a bid or offer for {args.get('index','the index')}."}
+                    return {
+                        "reply": f"Please specify at least a bid or offer for {args.get('index','the index')}."
+                    }
                 if args.get("cash_ref") is None:
-                    return {"reply": f"Please provide the cash reference level for {args.get('index','the index')}."}
+                    return {
+                        "reply": f"Please provide the cash reference level for {args.get('index','the index')}."
+                    }
                 result = await update_price(UpdatePriceRequest(**args), db)
+                result = jsonable_encoder(result)
 
             elif name == "trade":
                 if not all(k in args for k in ("index", "price", "lots", "cash_ref")):
-                    return {"reply": "Please provide full trade details (index, price, lots, cash_ref)."}
+                    return {
+                        "reply": "Please provide full trade details (index, price, lots, cash_ref)."
+                    }
                 result = await trade(TradeRequest(**args), db)
+                result = jsonable_encoder(result)
 
             elif name == "get_quote":
                 result = await get_quote(**args)
@@ -180,20 +201,21 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                 else:
                     result = {
                         "reply": f"{result['symbol']} (mapped {result['mapped_symbol']}) – "
-                                 f"Last Price {result['last_price']} {result.get('currency','')}"
+                        f"Last Price {result['last_price']} {result.get('currency','')}"
                     }
 
             elif name == "blotter_add":
                 trade_obj = await blotter_add(BlotterTradeBase(**args), db)
-                # Convert ORM response into natural language
+                trade_obj = jsonable_encoder(trade_obj)
                 reply = (
-                    f"Added/updated blotter trade: {trade_obj.side} {trade_obj.qty} {trade_obj.index_name} "
-                    f"at avg price {trade_obj.avg_price}."
+                    f"Added/updated blotter trade: {trade_obj['side']} {trade_obj['qty']} "
+                    f"{trade_obj['index_name']} at avg price {trade_obj['avg_price']}."
                 )
                 result = {"reply": reply}
 
             elif name == "blotter_remove":
                 res = await blotter_remove(BlotterRemoveRequest(**args), db)
+                res = jsonable_encoder(res)
                 reply = f"Trade removed from blotter. {res.get('detail','')}"
                 result = {"reply": reply}
 
@@ -204,19 +226,21 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                 else:
                     result = {
                         "reply": f"Best bid for {result['index']} is {result['best_bid']}, "
-                                 f"best offer is {result['best_offer']}."
+                        f"best offer is {result['best_offer']}."
                     }
 
             else:
-                result = {"reply": f"Unknown tool call"}
+                result = {"reply": f"Unknown tool call: {name}"}
 
-            # ✅ Append tool result into conversation
-            CONVERSATIONS[session_id].append({
-                "role": "tool",
-                "tool_call_id": tool_call.id,
-                "name": name,
-                "content": json.dumps(result),
-            })
+            # ✅ Append tool result into conversation safely
+            CONVERSATIONS[session_id].append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "name": name,
+                    "content": json.dumps(result),
+                }
+            )
 
             return {**result, "session_id": session_id}
 
