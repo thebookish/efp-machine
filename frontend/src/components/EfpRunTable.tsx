@@ -48,33 +48,39 @@ export default function EfpRunTable() {
     };
     fetchLatest();
 
-    // --- 2. Connect WebSocket for live updates ---
-    let ws: WebSocket;
-    const connect = () => {
-      ws = new WebSocket(`ws://efp-machine-2.onrender.com/api/efp/ws/run`);
-      ws.onmessage = (e) => {
-        const payload: Payload = JSON.parse(e.data);
-        setRunRows(payload.run);
-        setRecaps(payload.recaps);
-      };
-      ws.onerror = () => {
-        console.warn("WebSocket error");
-      };
-      ws.onclose = () => {
-        console.log("WebSocket closed, reconnecting...");
-        setTimeout(connect, 2000);
-      };
+     // --- Connect Run WebSocket ---
+  let runSocket: WebSocket;
+  const connectRun = () => {
+    runSocket = new WebSocket(`wss://efp-machine-2.onrender.com/api/efp/ws/run`);
+    runSocket.onmessage = (e) => {
+      const payload: Payload = JSON.parse(e.data);
+      setRunRows(payload.run);
+      setRecaps(payload.recaps); // you already broadcast recaps in run
     };
+    runSocket.onerror = () => console.warn("Run WebSocket error");
+    runSocket.onclose = () => setTimeout(connectRun, 2000);
+  };
+  connectRun();
 
-    connect();
-    return () => ws && ws.close();
-  }, []);
-  useEffect(() => {
-    const ws = new WebSocket(`ws://efp-machine-2.onrender.com/api/efp/ws/recaps`);
-    ws.onmessage = (e) => setRows(JSON.parse(e.data));
-    ws.onerror = () => {/* ignore */};
-    return () => ws.close();
-  }, []);
+  // --- Connect Recap WebSocket (optional if you want live recaps separate) ---
+  let recapSocket: WebSocket;
+  const connectRecaps = () => {
+    recapSocket = new WebSocket(`wss://efp-machine-2.onrender.com/api/efp/ws/recaps`);
+    recapSocket.onmessage = (e) => {
+      const data: Recap[] = JSON.parse(e.data);
+      setRecaps(data);
+    };
+    recapSocket.onerror = () => console.warn("Recaps WebSocket error");
+    recapSocket.onclose = () => setTimeout(connectRecaps, 2000);
+  };
+  connectRecaps();
+
+  return () => {
+    runSocket && runSocket.close();
+    recapSocket && recapSocket.close();
+  };
+}, []);
+  
   const copyRun = async () => {
     if (runRows.length === 0) return;
 
