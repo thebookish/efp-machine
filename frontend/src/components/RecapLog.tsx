@@ -7,7 +7,7 @@ export default function RecapLog() {
   const [rows, setRows] = useState<Recap[]>([]);
 
   useEffect(() => {
-    const ws = new WebSocket(`ws://localhost:8000/api/efp/ws/recaps`);
+    const ws = new WebSocket(`ws://efp-machine-2.onrender.com/api/efp/ws/recaps`);
     ws.onmessage = (e) => setRows(JSON.parse(e.data));
     ws.onerror = () => {/* ignore */};
     return () => ws.close();
