@@ -95,7 +95,7 @@ class BlotterTradeResponse(BaseModel):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True   # ✅ allows ORM -> schema conversion
 
 
 class BlotterRemoveRequest(BaseModel):
