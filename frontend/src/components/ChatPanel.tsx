@@ -4,14 +4,22 @@ import { askAI } from "../lib/api";
 export default function ChatPanel() {
   const [input, setInput] = useState("");
   const [log, setLog] = useState<{ role: "user" | "ai"; text: string }[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   const send = async () => {
     if (!input.trim()) return;
     const user = input;
     setInput("");
     setLog((l) => [...l, { role: "user", text: user }]);
+
     try {
-      const resp = await askAI(user);
+      const resp = await askAI(user, sessionId || undefined);
+
+      // save sessionId if backend generated one
+      if (resp.session_id && !sessionId) {
+        setSessionId(resp.session_id);
+      }
+
       const text = resp.detail || resp.reply || JSON.stringify(resp);
       setLog((l) => [...l, { role: "ai", text }]);
     } catch (e: any) {
