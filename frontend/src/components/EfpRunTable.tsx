@@ -37,7 +37,7 @@ export default function EfpRunTable() {
     // --- 1. Load the latest snapshot immediately (REST fetch) ---
     const fetchLatest = async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/efp/run");
+        const res = await fetch("https://efp-machine-2.onrender.com/api/efp/run");
         if (res.ok) {
           const data: RunRow[] = await res.json();
           setRunRows(data);
