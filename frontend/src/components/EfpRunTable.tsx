@@ -33,20 +33,42 @@ export default function EfpRunTable() {
   const [copiedRun, setCopiedRun] = useState(false);
   const [copiedRecaps, setCopiedRecaps] = useState(false);
 
-  // useEffect(() => {
-  //   const fetchLatest = async () => {
-  //     try {
-  //       const res = await fetch("https://efp-machine-2.onrender.com/api/efp/run");
-  //       if (res.ok) {
-  //         const data: RunRow[] = await res.json();
-  //         setRunRows(data);
-  //       }
-  //     } catch (err) {
-  //       console.error("Failed to fetch EFP run:", err);
-  //     }
-  //   };
-  //   fetchLatest();
-  // }, []);
+  useEffect(() => {
+    // --- 1. Load the latest snapshot immediately (REST fetch) ---
+    const fetchLatest = async () => {
+      try {
+        const res = await fetch("http://localhost:8000/api/efp/run");
+        if (res.ok) {
+          const data: RunRow[] = await res.json();
+          setRunRows(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch EFP run:", err);
+      }
+    };
+    fetchLatest();
+
+    // --- 2. Connect WebSocket for live updates ---
+    let ws: WebSocket;
+    const connect = () => {
+      ws = new WebSocket(`ws://localhost:8000/api/efp/ws/run`);
+      ws.onmessage = (e) => {
+        const payload: Payload = JSON.parse(e.data);
+        setRunRows(payload.run);
+        setRecaps(payload.recaps);
+      };
+      ws.onerror = () => {
+        console.warn("WebSocket error");
+      };
+      ws.onclose = () => {
+        console.log("WebSocket closed, reconnecting...");
+        setTimeout(connect, 2000);
+      };
+    };
+
+    connect();
+    return () => ws && ws.close();
+  }, []);
 
   const copyRun = async () => {
     if (runRows.length === 0) return;
@@ -109,7 +131,7 @@ export default function EfpRunTable() {
         </button>
       </div>
       <div className="text-xs text-gray-400 mb-2">
-        Columns: EFP’s | Price | Cash Ref | Watchpoint | Expiry
+        Columns: EFP’s | Price | Cash Ref
       </div>
 
       <table className="w-full text-sm text-gray-200">
@@ -118,8 +140,8 @@ export default function EfpRunTable() {
             <th className="text-left p-2">EFP’s</th>
             <th className="text-left p-2">Price</th>
             <th className="text-left p-2">Cash Ref</th>
-            <th className="text-left p-2">Watchpoint</th>
-            <th className="text-left p-2">Expiry</th>
+             <th className="text-left p-2">Watchpoint</th>
+             <th className="text-left p-2">Expiry</th>
           </tr>
         </thead>
         <tbody>
@@ -130,35 +152,30 @@ export default function EfpRunTable() {
                 {(r.bid ?? "-") + " / " + (r.offer ?? "-")}
               </td>
               <td className="p-2">{r.cash_ref ?? "-"}</td>
-              <td className="p-2">
-                {r.watchpoint ? (
-                  <span className="text-red-500 font-bold">⚠</span>
-                ) : (
-                  "-"
-                )}
-              </td>
-              <td className="p-2">
-                {r.expiry.status === "Expired" && (
-                  <span className="text-red-500 font-semibold">
-                    Expired ({r.expiry.expiry_date})
-                  </span>
-                )}
-                {r.expiry.status === "In expiry window" && (
-                  <span className="text-yellow-400 font-semibold">
-                    In window ({r.expiry.expiry_date})
-                  </span>
-                )}
-                {r.expiry.status === "Pending" && (
-                  <span className="text-green-400 font-semibold">
-                    Pending ({r.expiry.expiry_date})
-                  </span>
-                )}
-              </td>
-            </tr>
-          ))}
+<td className="p-2">
+        {r.watchpoint ? (
+          <span className="text-red-500 font-bold">⚠</span>
+        ) : (
+          "-"
+        )}
+      </td>
+  <td className="p-2">
+    {r.expiry.status === "Expired" && (
+      <span className="text-red-500 font-semibold">Expired ({r.expiry.expiry_date})</span>
+    )}
+    {r.expiry.status === "In expiry window" && (
+      <span className="text-yellow-400 font-semibold">In window ({r.expiry.expiry_date})</span>
+    )}
+    {r.expiry.status === "Pending" && (
+      <span className="text-green-400 font-semibold">Pending ({r.expiry.expiry_date})</span>
+    )}
+  </td>
+
+    </tr>
+  ))}
           {runRows.length === 0 && (
             <tr>
-              <td colSpan={5} className="p-3 text-center text-gray-500">
+              <td colSpan={3} className="p-3 text-center text-gray-500">
                 No rows yet — waiting for latest EFP run.
               </td>
             </tr>
