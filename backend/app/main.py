@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.deps import engine
-from app.routers import efp, ai, health
+from app.routers import efp, ai, health, blotter
 from app.services.scheduler import start_scheduler
 from app.utils.time import now_uk
 from app.models import Base
@@ -29,6 +29,8 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(efp.router)
 app.include_router(ai.router)
+app.include_router(blotter.router)
+
 @app.get("/")
 async def root():
     return {"message": "EFP Machine backend is running"}
