@@ -80,7 +80,7 @@ class CommandResult(BaseModel):
     updated_run: Optional[list[EfpRow]] = None
 
 class BlotterTradeBase(BaseModel):
-    side: str  # BUY / SELL
+    side: str
     index_name: str
     qty: int
     price: float
