@@ -33,20 +33,20 @@ export default function EfpRunTable() {
   const [copiedRun, setCopiedRun] = useState(false);
   const [copiedRecaps, setCopiedRecaps] = useState(false);
 
-  useEffect(() => {
-    const fetchLatest = async () => {
-      try {
-        const res = await fetch("https://efp-machine-2.onrender.com/api/efp/run");
-        if (res.ok) {
-          const data: RunRow[] = await res.json();
-          setRunRows(data);
-        }
-      } catch (err) {
-        console.error("Failed to fetch EFP run:", err);
-      }
-    };
-    fetchLatest();
-  }, []);
+  // useEffect(() => {
+  //   const fetchLatest = async () => {
+  //     try {
+  //       const res = await fetch("https://efp-machine-2.onrender.com/api/efp/run");
+  //       if (res.ok) {
+  //         const data: RunRow[] = await res.json();
+  //         setRunRows(data);
+  //       }
+  //     } catch (err) {
+  //       console.error("Failed to fetch EFP run:", err);
+  //     }
+  //   };
+  //   fetchLatest();
+  // }, []);
 
   const copyRun = async () => {
     if (runRows.length === 0) return;
