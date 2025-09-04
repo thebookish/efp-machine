@@ -1,8 +1,12 @@
-# backend/app/routers/ai.py
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.deps import get_db
-from app.schemas import TradeRequest, UpdatePriceRequest, BlotterTradeBase, BlotterRemoveRequest
+from app.schemas import (
+    TradeRequest,
+    UpdatePriceRequest,
+    BlotterTradeBase,
+    BlotterRemoveRequest,
+)
 from app.routers.efp import update_price, trade
 from app.routers.blotter import add_trade as blotter_add, remove_trade as blotter_remove
 from app.services.market import get_quote
@@ -180,10 +184,18 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                     }
 
             elif name == "blotter_add":
-                result = await blotter_add(BlotterTradeBase(**args), db)
+                trade_obj = await blotter_add(BlotterTradeBase(**args), db)
+                # Convert ORM response into natural language
+                reply = (
+                    f"Added/updated blotter trade: {trade_obj.side} {trade_obj.qty} {trade_obj.index_name} "
+                    f"at avg price {trade_obj.avg_price}."
+                )
+                result = {"reply": reply}
 
             elif name == "blotter_remove":
-                result = await blotter_remove(BlotterRemoveRequest(**args), db)
+                res = await blotter_remove(BlotterRemoveRequest(**args), db)
+                reply = f"Trade removed from blotter. {res.get('detail','')}"
+                result = {"reply": reply}
 
             elif name == "get_bbo":
                 result = await get_bbo(args["index"])
@@ -196,7 +208,7 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                     }
 
             else:
-                result = {"reply": f"Unknown tool call: {name}"}
+                result = {"reply": f"Unknown tool call"}
 
             # ✅ Append tool result into conversation
             CONVERSATIONS[session_id].append({
