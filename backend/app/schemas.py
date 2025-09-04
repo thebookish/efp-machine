@@ -1,5 +1,6 @@
 # backend/app/schemas.py
 from pydantic import BaseModel,Field
+from datetime import datetime
 from typing import Optional
 
 
@@ -77,3 +78,25 @@ class CommandResult(BaseModel):
     requires_cash_ref: bool = False
     requires_confirmation: bool = False
     updated_run: Optional[list[EfpRow]] = None
+
+class BlotterTradeBase(BaseModel):
+    side: str  # BUY / SELL
+    index_name: str
+    qty: int
+    price: float
+
+
+class BlotterTradeResponse(BaseModel):
+    id: int
+    side: str
+    index_name: str
+    qty: int
+    avg_price: float
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+
+
+class BlotterRemoveRequest(BaseModel):
+    trade_id: int
