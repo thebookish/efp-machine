@@ -6,6 +6,7 @@ from app.routers.efp import update_price, trade
 from app.routers.blotter import add_trade as blotter_add, remove_trade as blotter_remove
 from app.services.market import get_quote
 from app.config import settings
+from app.routers.quotes import get_bbo
 from openai import OpenAI
 import json
 import uuid
@@ -124,6 +125,21 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                         },
                     },
                 },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "get_bbo",
+                        "description": "Get the best bid/offer for an index from client quotes",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "index": {"type": "string"}
+                            },
+                            "required": ["index"],
+                        },
+                    },
+                },
+
             ],
         )
 
@@ -177,6 +193,17 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                 if not args.get("trade_id"):
                     return {"reply": "Please provide the trade_id to remove."}
                 return await blotter_remove(BlotterRemoveRequest(**args), db)
+           
+            elif name == "get_bbo":
+                result = await get_bbo(args["index"])
+                if "detail" in result:
+                    return {"reply": result["detail"]}
+                reply = (
+                    f"Best bid for {result['index']} is {result['best_bid']} (from {result['best_bid_client']}), "
+                    f"best offer is {result['best_offer']} (from {result['best_offer_client']})."
+                )
+                return {"reply": reply}
+
 
             else:
                 return {"reply": f"Unknown tool call: {name}", "session_id": session_id}
