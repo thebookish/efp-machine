@@ -69,7 +69,14 @@ export default function EfpRunTable() {
     connect();
     return () => ws && ws.close();
   }, []);
-
+  
+  useEffect(() => {
+    const ws = new WebSocket(`ws://efp-machine-2.onrender.com/api/efp/ws/recaps`);
+    ws.onmessage = (e) => setRows(JSON.parse(e.data));
+    ws.onerror = () => {/* ignore */};
+    return () => ws.close();
+  }, []);
+  
   const copyRun = async () => {
     if (runRows.length === 0) return;
 
