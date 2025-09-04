@@ -164,11 +164,16 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
             #     }
 
             if name == "update_price":
+                # Detect if user said confirm
+                if "confirm" in query["message"].lower():
+                    args["dean_confirm"] = True
+            
                 if args.get("bid") is None and args.get("offer") is None:
                     return {"reply": f"Please specify at least a bid or offer for {args.get('index','the index')}."}
                 if args.get("cash_ref") is None:
                     return {"reply": f"Please provide the cash reference level for {args.get('index','the index')}."}
                 return await update_price(UpdatePriceRequest(**args), db)
+
 
             elif name == "trade":
                 if not all(k in args for k in ("index", "price", "lots", "cash_ref")):
