@@ -1,10 +1,6 @@
 # backend/app/routers/ai.py
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi.encoders import jsonable_encoder
-import json
-import uuid
-
 from app.deps import get_db
 from app.schemas import (
     TradeRequest,
@@ -13,16 +9,13 @@ from app.schemas import (
     BlotterRemoveRequest,
 )
 from app.routers.efp import update_price, trade
-from app.routers.blotter import (
-    add_trade as blotter_add,
-    remove_trade as blotter_remove,
-    list_trades as blotter_list,
-)
+from app.routers.blotter import add_trade as blotter_add, remove_trade as blotter_remove
 from app.services.market import get_quote
 from app.routers.quotes import get_bbo
 from app.config import settings
 from openai import OpenAI
-
+import json
+import uuid
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
@@ -31,25 +24,15 @@ client = OpenAI(api_key=settings.OPENAI_API_KEY)
 CONVERSATIONS = {}
 
 ALLOWED_INDICES = {
-    "SX5E",
-    "FTSE",
-    "DAX",
-    "SMI",
-    "MIB",
-    "CAC",
-    "IBEX",
-    "AEX",
-    "OMX",
-    "SX7E",
-    "SX7E CC",
+    "SX5E", "FTSE", "DAX", "SMI", "MIB",
+    "CAC", "IBEX", "AEX", "OMX", "SX7E", "SX7E CC",
 }
 
 SYSTEM_PROMPT = (
     "You are the EFP Machine assistant. "
-    "You may only respond with tool calls (update_price, trade, get_quote, "
-    "blotter_add, blotter_remove, blotter_list, get_bbo). "
+    "You may only respond with tool calls (update_price, trade, get_quote, blotter_add, blotter_remove, get_bbo). "
     "Keep track of context across the conversation. "
-    "Never guess or assume missing values."
+    "Never guess or assume missing values. "
 )
 
 
@@ -59,12 +42,8 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
         # --- 1. Manage conversation memory ---
         session_id = query.get("session_id") or str(uuid.uuid4())
         if session_id not in CONVERSATIONS:
-            CONVERSATIONS[session_id] = [
-                {"role": "system", "content": SYSTEM_PROMPT}
-            ]
-        CONVERSATIONS[session_id].append(
-            {"role": "user", "content": query["message"]}
-        )
+            CONVERSATIONS[session_id] = [{"role": "system", "content": SYSTEM_PROMPT}]
+        CONVERSATIONS[session_id].append({"role": "user", "content": query["message"]})
 
         # --- 2. Ask OpenAI ---
         resp = client.chat.completions.create(
@@ -113,7 +92,9 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                         "description": "Fetch last price from Yahoo Finance",
                         "parameters": {
                             "type": "object",
-                            "properties": {"symbol": {"type": "string"}},
+                            "properties": {
+                                "symbol": {"type": "string"},
+                            },
                             "required": ["symbol"],
                         },
                     },
@@ -142,17 +123,11 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                         "description": "Remove a trade from blotter",
                         "parameters": {
                             "type": "object",
-                            "properties": {"trade_id": {"type": "integer"}},
+                            "properties": {
+                                "trade_id": {"type": "integer"},
+                            },
                             "required": ["trade_id"],
                         },
-                    },
-                },
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "blotter_list",
-                        "description": "List all blotter trades",
-                        "parameters": {"type": "object", "properties": {}},
                     },
                 },
                 {
@@ -162,7 +137,9 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                         "description": "Get the best bid/offer for an index from client quotes",
                         "parameters": {
                             "type": "object",
-                            "properties": {"index": {"type": "string"}},
+                            "properties": {
+                                "index": {"type": "string"},
+                            },
                             "required": ["index"],
                         },
                     },
@@ -182,76 +159,64 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
             name = tool_call.function.name
             args = json.loads(tool_call.function.arguments)
 
-            # Run the tool
+            # --- Handle each tool ---
             if name == "update_price":
                 if "confirm" in query["message"].lower():
                     args["dean_confirm"] = True
-                result = await update_price(UpdatePriceRequest(**args), db)
+                res = await update_price(UpdatePriceRequest(**args), db)
+                result = res.dict() if hasattr(res, "dict") else dict(res)
 
             elif name == "trade":
-                result = await trade(TradeRequest(**args), db)
+                res = await trade(TradeRequest(**args), db)
+                result = res.dict() if hasattr(res, "dict") else dict(res)
 
             elif name == "get_quote":
-                result = await get_quote(**args)
-                if "error" in result:
-                    result = {
-                        "reply": f"Could not fetch data for {result['symbol']}."
-                    }
+                res = await get_quote(**args)
+                if "error" in res:
+                    result = {"reply": f"Could not fetch data for {res['symbol']}."}
                 else:
                     result = {
-                        "reply": f"{result['symbol']} (mapped {result['mapped_symbol']}) – "
-                        f"Last Price {result['last_price']} {result.get('currency','')}"
+                        "reply": f"{res['symbol']} (mapped {res['mapped_symbol']}) – "
+                                 f"Last Price {res['last_price']} {res.get('currency','')}"
                     }
 
             elif name == "blotter_add":
-                trade_obj = await blotter_add(BlotterTradeBase(**args), db)
-                trade_dict = jsonable_encoder(trade_obj)
+                res = await blotter_add(BlotterTradeBase(**args), db)
+                if hasattr(res, "dict"):
+                    res = res.dict()
                 reply = (
-                    f"Added/updated blotter trade: {trade_dict['side']} "
-                    f"{trade_dict['qty']} {trade_dict['index_name']} "
-                    f"at avg price {trade_dict['avg_price']}."
+                    f"Added/updated blotter trade: {res['side']} {res['qty']} {res['index_name']} "
+                    f"at avg price {res['avg_price']}."
                 )
                 result = {"reply": reply}
 
             elif name == "blotter_remove":
-                resp = await blotter_remove(BlotterRemoveRequest(**args), db)
-                reply = f"Trade removed from blotter. {resp.get('detail','')}"
+                res = await blotter_remove(BlotterRemoveRequest(**args), db)
+                if hasattr(res, "dict"):
+                    res = res.dict()
+                reply = f"Trade removed from blotter. {res.get('detail','')}"
                 result = {"reply": reply}
 
-            elif name == "blotter_list":
-                trades = await blotter_list(db)
-                if not trades:
-                    result = {"reply": "You have no trades in the blotter."}
-                else:
-                    trades = jsonable_encoder(trades)
-                    lines = [
-                        f"{t['side']} {t['qty']} {t['index_name']} at avg {t['avg_price']} (id={t['id']})"
-                        for t in trades
-                    ]
-                    result = {"reply": "Your trades:\n" + "\n".join(lines)}
-
             elif name == "get_bbo":
-                result = await get_bbo(args["index"])
-                if "detail" in result:
-                    result = {"reply": result["detail"]}
+                res = await get_bbo(args["index"])
+                if "detail" in res:
+                    result = {"reply": res["detail"]}
                 else:
                     result = {
-                        "reply": f"Best bid for {result['index']} is {result['best_bid']}, "
-                        f"best offer is {result['best_offer']}."
+                        "reply": f"Best bid for {res['index']} is {res['best_bid']}, "
+                                 f"best offer is {res['best_offer']}."
                     }
 
             else:
                 result = {"reply": f"Unknown tool call: {name}"}
 
             # ✅ Append tool result into conversation
-            CONVERSATIONS[session_id].append(
-                {
-                    "role": "tool",
-                    "tool_call_id": tool_call.id,
-                    "name": name,
-                    "content": json.dumps(result),
-                }
-            )
+            CONVERSATIONS[session_id].append({
+                "role": "tool",
+                "tool_call_id": tool_call.id,
+                "name": name,
+                "content": json.dumps(result),
+            })
 
             return {**result, "session_id": session_id}
 
