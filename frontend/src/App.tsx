@@ -5,6 +5,7 @@ import ChatPanel from "./components/ChatPanel";
 // import RatesPanel from "./components/RatesPanel";
 import MarketValuesPanel from "./components/MarketValuesPanel";
 import PredictionPanel from "./components/PredictionPanel";
+import BlotterPanel from "./components/BlotterPanel";
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
         </div>
         <div className="md:col-span-2 space-y-6">
            {/* <PredictionPanel/> */}
+          <BlotterPanel />
         </div>
       </div>
     </div>
