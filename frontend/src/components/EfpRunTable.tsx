@@ -48,34 +48,34 @@ export default function EfpRunTable() {
     };
     fetchLatest();
 
-    // --- 2. Connect WebSocket for live updates ---
-    let ws: WebSocket;
-    const connect = () => {
-      ws = new WebSocket(`ws://efp-machine-2.onrender.com/api/efp/ws/run`);
-      ws.onmessage = (e) => {
-        const payload: Payload = JSON.parse(e.data);
-        setRunRows(payload.run);
-        setRecaps(payload.recaps);
-      };
-      ws.onerror = () => {
-        console.warn("WebSocket error");
-      };
-      ws.onclose = () => {
-        console.log("WebSocket closed, reconnecting...");
-        setTimeout(connect, 2000);
-      };
-    };
+  //   // --- 2. Connect WebSocket for live updates ---
+  //   let ws: WebSocket;
+  //   const connect = () => {
+  //     ws = new WebSocket(`ws://efp-machine-2.onrender.com/api/efp/ws/run`);
+  //     ws.onmessage = (e) => {
+  //       const payload: Payload = JSON.parse(e.data);
+  //       setRunRows(payload.run);
+  //       setRecaps(payload.recaps);
+  //     };
+  //     ws.onerror = () => {
+  //       console.warn("WebSocket error");
+  //     };
+  //     ws.onclose = () => {
+  //       console.log("WebSocket closed, reconnecting...");
+  //       setTimeout(connect, 2000);
+  //     };
+  //   };
 
-    connect();
-    return () => ws && ws.close();
-  }, []);
+  //   connect();
+  //   return () => ws && ws.close();
+  // }, []);
   
-  useEffect(() => {
-    const ws = new WebSocket(`ws://efp-machine-2.onrender.com/api/efp/ws/recaps`);
-    ws.onmessage = (e) => setRows(JSON.parse(e.data));
-    ws.onerror = () => {/* ignore */};
-    return () => ws.close();
-  }, []);
+  // useEffect(() => {
+  //   const ws = new WebSocket(`ws://efp-machine-2.onrender.com/api/efp/ws/recaps`);
+  //   ws.onmessage = (e) => setRows(JSON.parse(e.data));
+  //   ws.onerror = () => {/* ignore */};
+  //   return () => ws.close();
+  // }, []);
   
   const copyRun = async () => {
     if (runRows.length === 0) return;
