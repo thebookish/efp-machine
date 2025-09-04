@@ -2,6 +2,9 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.encoders import jsonable_encoder
+import json
+import uuid
+
 from app.deps import get_db
 from app.schemas import (
     TradeRequest,
@@ -10,13 +13,16 @@ from app.schemas import (
     BlotterRemoveRequest,
 )
 from app.routers.efp import update_price, trade
-from app.routers.blotter import add_trade as blotter_add, remove_trade as blotter_remove
+from app.routers.blotter import (
+    add_trade as blotter_add,
+    remove_trade as blotter_remove,
+    list_trades as blotter_list,
+)
 from app.services.market import get_quote
 from app.routers.quotes import get_bbo
 from app.config import settings
 from openai import OpenAI
-import json
-import uuid
+
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
@@ -40,7 +46,8 @@ ALLOWED_INDICES = {
 
 SYSTEM_PROMPT = (
     "You are the EFP Machine assistant. "
-    "You may only respond with tool calls (update_price, trade, get_quote, blotter_add, blotter_remove, get_bbo). "
+    "You may only respond with tool calls (update_price, trade, get_quote, "
+    "blotter_add, blotter_remove, blotter_list, get_bbo). "
     "Keep track of context across the conversation. "
     "Never guess or assume missing values."
 )
@@ -106,9 +113,7 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                         "description": "Fetch last price from Yahoo Finance",
                         "parameters": {
                             "type": "object",
-                            "properties": {
-                                "symbol": {"type": "string"},
-                            },
+                            "properties": {"symbol": {"type": "string"}},
                             "required": ["symbol"],
                         },
                     },
@@ -137,11 +142,17 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                         "description": "Remove a trade from blotter",
                         "parameters": {
                             "type": "object",
-                            "properties": {
-                                "trade_id": {"type": "integer"},
-                            },
+                            "properties": {"trade_id": {"type": "integer"}},
                             "required": ["trade_id"],
                         },
+                    },
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "blotter_list",
+                        "description": "List all blotter trades",
+                        "parameters": {"type": "object", "properties": {}},
                     },
                 },
                 {
@@ -175,29 +186,17 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
             if name == "update_price":
                 if "confirm" in query["message"].lower():
                     args["dean_confirm"] = True
-                if args.get("bid") is None and args.get("offer") is None:
-                    return {
-                        "reply": f"Please specify at least a bid or offer for {args.get('index','the index')}."
-                    }
-                if args.get("cash_ref") is None:
-                    return {
-                        "reply": f"Please provide the cash reference level for {args.get('index','the index')}."
-                    }
                 result = await update_price(UpdatePriceRequest(**args), db)
-                result = jsonable_encoder(result)
 
             elif name == "trade":
-                if not all(k in args for k in ("index", "price", "lots", "cash_ref")):
-                    return {
-                        "reply": "Please provide full trade details (index, price, lots, cash_ref)."
-                    }
                 result = await trade(TradeRequest(**args), db)
-                result = jsonable_encoder(result)
 
             elif name == "get_quote":
                 result = await get_quote(**args)
                 if "error" in result:
-                    result = {"reply": f"Could not fetch data for {result['symbol']}."}
+                    result = {
+                        "reply": f"Could not fetch data for {result['symbol']}."
+                    }
                 else:
                     result = {
                         "reply": f"{result['symbol']} (mapped {result['mapped_symbol']}) – "
@@ -206,18 +205,30 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
 
             elif name == "blotter_add":
                 trade_obj = await blotter_add(BlotterTradeBase(**args), db)
-                trade_obj = jsonable_encoder(trade_obj)
+                trade_dict = jsonable_encoder(trade_obj)
                 reply = (
-                    f"Added/updated blotter trade: {trade_obj['side']} {trade_obj['qty']} "
-                    f"{trade_obj['index_name']} at avg price {trade_obj['avg_price']}."
+                    f"Added/updated blotter trade: {trade_dict['side']} "
+                    f"{trade_dict['qty']} {trade_dict['index_name']} "
+                    f"at avg price {trade_dict['avg_price']}."
                 )
                 result = {"reply": reply}
 
             elif name == "blotter_remove":
-                res = await blotter_remove(BlotterRemoveRequest(**args), db)
-                res = jsonable_encoder(res)
-                reply = f"Trade removed from blotter. {res.get('detail','')}"
+                resp = await blotter_remove(BlotterRemoveRequest(**args), db)
+                reply = f"Trade removed from blotter. {resp.get('detail','')}"
                 result = {"reply": reply}
+
+            elif name == "blotter_list":
+                trades = await blotter_list(db)
+                if not trades:
+                    result = {"reply": "You have no trades in the blotter."}
+                else:
+                    trades = jsonable_encoder(trades)
+                    lines = [
+                        f"{t['side']} {t['qty']} {t['index_name']} at avg {t['avg_price']} (id={t['id']})"
+                        for t in trades
+                    ]
+                    result = {"reply": "Your trades:\n" + "\n".join(lines)}
 
             elif name == "get_bbo":
                 result = await get_bbo(args["index"])
@@ -232,7 +243,7 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
             else:
                 result = {"reply": f"Unknown tool call: {name}"}
 
-            # ✅ Append tool result into conversation safely
+            # ✅ Append tool result into conversation
             CONVERSATIONS[session_id].append(
                 {
                     "role": "tool",
