@@ -51,7 +51,7 @@ export default function EfpRunTable() {
     // --- 2. Connect WebSocket for live updates ---
     let ws: WebSocket;
     const connect = () => {
-      ws = new WebSocket(`ws://localhost:8000/api/efp/ws/run`);
+      ws = new WebSocket(`ws://efp-machine-2.onrender.com/api/efp/ws/run`);
       ws.onmessage = (e) => {
         const payload: Payload = JSON.parse(e.data);
         setRunRows(payload.run);
@@ -69,7 +69,12 @@ export default function EfpRunTable() {
     connect();
     return () => ws && ws.close();
   }, []);
-
+  useEffect(() => {
+    const ws = new WebSocket(`ws://efp-machine-2.onrender.com/api/efp/ws/recaps`);
+    ws.onmessage = (e) => setRows(JSON.parse(e.data));
+    ws.onerror = () => {/* ignore */};
+    return () => ws.close();
+  }, []);
   const copyRun = async () => {
     if (runRows.length === 0) return;
 
