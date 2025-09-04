@@ -37,3 +37,13 @@ class DailyClose(Base):
     index_name: Mapped[str] = mapped_column(String(20))
     level: Mapped[float] = mapped_column(Float)
     as_of_date: Mapped[datetime] = mapped_column(DateTime)
+
+class BlotterTrade(Base):
+    __tablename__ = "blotter_trade"
+
+    id = Column(Integer, primary_key=True, index=True)
+    side = Column(String, nullable=False)  # "BUY" or "SELL"
+    index_name = Column(String, nullable=False)
+    qty = Column(Integer, nullable=False)
+    avg_price = Column(Float, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
