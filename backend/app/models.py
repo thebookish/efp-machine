@@ -1,6 +1,7 @@
 from sqlalchemy.orm import declarative_base, Mapped, mapped_column
 from sqlalchemy import String, Float, Integer, DateTime, Text,Column, CheckConstraint
 from datetime import datetime
+from sqlalchemy.sql import func
 
 Base = declarative_base()
 
