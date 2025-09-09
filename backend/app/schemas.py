@@ -3,15 +3,17 @@ from pydantic import BaseModel,Field
 from datetime import datetime
 from typing import Optional
 
+
 class OrderCreate(BaseModel):
-    client_provided_id: str
-    symbol: str
-    expiry: str
-    side: str
-    quantity: float
+    message: str
+    orderType: str = "SINGLE"
+    buySell: str
+    quantity: float = 1.0
     price: float
     basis: float
-
+    strategyDisplayName: str = "TRF"
+    contractId: str
+    expiryDate: str
 
 class OrderResponse(OrderCreate):
     id: str

@@ -12,13 +12,15 @@ class Order(Base):
     __tablename__ = "orders"
 
     id = Column(String, primary_key=True, index=True)
-    client_provided_id = Column(String, unique=True, nullable=False)
-    symbol = Column(String, nullable=False)        # e.g. SX5E
-    expiry = Column(String, nullable=False)        # e.g. DEC25
-    side = Column(String, CheckConstraint("side IN ('BUY','SELL')"), nullable=False)
-    quantity = Column(Float, nullable=False)
+    message = Column(String, nullable=False)
+    orderType = Column(String, default="SINGLE")
+    buySell = Column(String, nullable=False)   # BUY / SELL
+    quantity = Column(Float, default=1.0)
     price = Column(Float, nullable=False)
     basis = Column(Float, nullable=False)
+    strategyDisplayName = Column(String, default="TRF")
+    contractId = Column(String, nullable=False)  # e.g. SX5E
+    expiryDate = Column(String, nullable=False)  # e.g. DEC26
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class EfpRun(Base):
