@@ -85,7 +85,7 @@ async def upload_bbg_file(file: UploadFile = File(...), db: AsyncSession = Depen
         if exists.scalar_one_or_none():
             continue
 
-        order = Order(
+        order = OrderCreate(
             id=str(uuid.uuid4()),
             client_provided_id=parsed.client_provided_id,
             symbol=parsed.symbol,
