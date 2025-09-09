@@ -3,7 +3,22 @@ from pydantic import BaseModel,Field
 from datetime import datetime
 from typing import Optional
 
+class OrderBase(BaseModel):
+    client_provided_id: str
+    symbol: str
+    side: str
+    quantity: float
+    price: float
 
+class OrderCreate(OrderBase):
+    pass
+
+class OrderResponse(OrderBase):
+    id: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
 # -------- Trades --------
 class TradeRequest(BaseModel):
     index: str

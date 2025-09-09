@@ -1,8 +1,20 @@
 from sqlalchemy.orm import declarative_base, Mapped, mapped_column
-from sqlalchemy import String, Float, Integer, DateTime, Text,Column
+from sqlalchemy import String, Float, Integer, DateTime, Text,Column, CheckConstraint
 from datetime import datetime
 
 Base = declarative_base()
+
+
+class Order(Base):
+    __tablename__ = "orders"
+
+    id = Column(String, primary_key=True, index=True)
+    client_provided_id = Column(String, unique=True, nullable=False)
+    symbol = Column(String, nullable=False)
+    side = Column(String, CheckConstraint("side IN ('BUY','SELL')"), nullable=False)
+    quantity = Column(Float, nullable=False)
+    price = Column(Float, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class EfpRun(Base):
     __tablename__ = 'efp_run'
