@@ -62,7 +62,7 @@ from app.services.parse import parse_bbg_message
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 
-# --- WebSocket connection manager ---
+# --- WebSocket manager ---
 class OrdersWSManager:
     def __init__(self):
         self._lock = asyncio.Lock()
@@ -75,11 +75,9 @@ class OrdersWSManager:
 
     async def disconnect(self, ws: WebSocket):
         async with self._lock:
-            if ws in self.active:
-                self.active.remove(ws)
+            self.active.discard(ws)
 
     async def broadcast_json(self, message: dict):
-        # broadcast to all, dropping dead sockets
         dead = []
         async with self._lock:
             for ws in list(self.active):
@@ -92,18 +90,16 @@ class OrdersWSManager:
 
 manager = OrdersWSManager()
 
-# --- helpers ---
+# --- Helpers ---
 async def _fetch_orders(db: AsyncSession) -> list[Order]:
     result = await db.execute(select(Order).order_by(Order.created_at.desc()))
     return list(result.scalars().all())
 
 def _serialize_orders(orders: list[Order]) -> list[dict]:
-    # Make sure all fields are JSON-serializable (datetimes -> ISO strings)
     return [
-        OrderResponse.model_validate(o, from_attributes=True).model_dump(mode="json")
+        OrderResponse.model_validate(o, from_attributes=True).model_dump()
         for o in orders
     ]
-
 
 async def _push_full_list(db: AsyncSession):
     orders = await _fetch_orders(db)
@@ -112,31 +108,19 @@ async def _push_full_list(db: AsyncSession):
         "payload": _serialize_orders(orders),
     })
 
-# --- WebSocket: stream order list ---
+# --- WebSocket: live updates ---
 @router.websocket("/ws")
 async def orders_ws(ws: WebSocket, db: AsyncSession = Depends(get_db)):
     await manager.connect(ws)
     try:
-        # Send initial list
+        # Send latest list immediately
         await ws.send_json({
             "type": "orders_list",
             "payload": _serialize_orders(await _fetch_orders(db)),
         })
-
-        async def sender():
-            while True:
-                await asyncio.sleep(25)
-                try:
-                    await ws.send_json({"type": "ping"})
-                except Exception:
-                    break
-
-        async def receiver():
-            # optional: accept pings or no-op messages from client
-            while True:
-                _ = await ws.receive_text()  # ignore, just keep connection active
-
-        await asyncio.gather(sender(), receiver())
+        while True:
+            # Keep connection alive (ignore client messages)
+            await ws.receive_text()
     except WebSocketDisconnect:
         await manager.disconnect(ws)
     except Exception:
@@ -146,7 +130,7 @@ async def orders_ws(ws: WebSocket, db: AsyncSession = Depends(get_db)):
         except Exception:
             pass
 
-# --- Upload orders (broadcast after commit) ---
+# --- Upload BBG JSON file ---
 @router.post("/upload")
 async def upload_bbg_file(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
     if not file.filename.endswith(".json"):
@@ -183,19 +167,16 @@ async def upload_bbg_file(file: UploadFile = File(...), db: AsyncSession = Depen
         inserted += 1
 
     await db.commit()
-
-    # After DB changes, push the fresh list to all sockets
     await _push_full_list(db)
 
     return {"inserted": inserted, "status": "ok"}
 
-# --- List (still available for non-WS clients) ---
+# --- Fallback GET list ---
 @router.get("/list", response_model=list[OrderResponse])
 async def list_orders(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Order).order_by(Order.created_at.desc()))
-    return result.scalars().all()
+    return await _fetch_orders(db)
 
-# --- Edit order (broadcast after commit) ---
+# --- Edit order ---
 @router.put("/edit/{order_id}", response_model=OrderResponse)
 async def edit_order(order_id: str, updates: OrderUpdate, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Order).where(Order.id == order_id))
@@ -203,13 +184,11 @@ async def edit_order(order_id: str, updates: OrderUpdate, db: AsyncSession = Dep
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    for field, value in updates.dict(exclude_unset=True).items():
+    for field, value in updates.model_dump(exclude_unset=True).items():
         setattr(order, field, value)
 
     await db.commit()
     await db.refresh(order)
-
-    # Broadcast the full list so all clients stay consistent
     await _push_full_list(db)
 
     return order

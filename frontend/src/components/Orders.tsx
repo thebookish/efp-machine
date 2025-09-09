@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://efp-machine-2.onrender.com", // change to backend
+  baseURL: "https://efp-machine-2.onrender.com", // backend
 });
 
 type Order = {
@@ -24,13 +24,19 @@ export default function Orders() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState<Partial<Order>>({});
 
-  const fetchOrders = async () => {
-    const { data } = await api.get("/api/orders/list");
-    setOrders(data);
-  };
-
   useEffect(() => {
-    fetchOrders();
+    const ws = new WebSocket("wss://efp-machine-2.onrender.com/api/orders/ws");
+
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.type === "orders_list") {
+        setOrders(msg.payload);
+      }
+    };
+
+    return () => {
+      ws.close();
+    };
   }, []);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -38,11 +44,9 @@ export default function Orders() {
     const file = e.target.files[0];
     const formData = new FormData();
     formData.append("file", file);
-
     await api.post("/api/orders/upload", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
-    await fetchOrders();
   };
 
   const startEdit = (order: Order) => {
@@ -59,13 +63,14 @@ export default function Orders() {
     await api.put(`/api/orders/edit/${orderId}`, editData);
     setEditingId(null);
     setEditData({});
-    await fetchOrders();
   };
 
   return (
     <div className="p-6">
       <h1 className="text-xl font-bold mb-4">Orders</h1>
-      {/* <input type="file" accept=".json" onChange={handleUpload} /> */}
+
+      <input type="file" accept=".json" onChange={handleUpload} />
+
       <table className="min-w-full border mt-4">
         <thead>
           <tr>
@@ -75,7 +80,7 @@ export default function Orders() {
             <th>Qty</th>
             <th>Price</th>
             <th>Basis</th>
-            <th>StrategyDisplayName</th>
+            <th>Strategy</th>
             <th>ContractId</th>
             <th>Expiry</th>
             <th>Actions</th>
