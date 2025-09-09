@@ -56,7 +56,7 @@ import uuid, json
 
 from app.deps import get_db
 from app.models import Order
-from app.schemas import OrderResponse
+from app.schemas import OrderResponse, OrderUpdate
 from app.services.parse import parse_bbg_message
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
@@ -103,3 +103,19 @@ async def upload_bbg_file(file: UploadFile = File(...), db: AsyncSession = Depen
 async def list_orders(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Order).order_by(Order.created_at.desc()))
     return result.scalars().all()
+
+# --- Edit Endpoint ---
+@router.put("/edit/{order_id}", response_model=OrderResponse)
+async def edit_order(order_id: str, updates: OrderUpdate, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Order).where(Order.id == order_id))
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Apply updates only to provided fields
+    for field, value in updates.dict(exclude_unset=True).items():
+        setattr(order, field, value)
+
+    await db.commit()
+    await db.refresh(order)
+    return order

@@ -3,24 +3,41 @@ from pydantic import BaseModel,Field
 from datetime import datetime
 from typing import Optional
 
-
-class OrderCreate(BaseModel):
+class OrderBase(BaseModel):
     message: str
-    orderType: str = "SINGLE"
+    orderType: str
     buySell: str
-    quantity: float = 1.0
+    quantity: float
     price: float
     basis: float
-    strategyDisplayName: str = "TRF"
+    strategyDisplayName: str
     contractId: str
     expiryDate: str
 
-class OrderResponse(OrderCreate):
+
+class OrderCreate(OrderBase):
+    pass
+
+
+class OrderUpdate(BaseModel):
+    """Fields that can be updated."""
+    message: Optional[str] = None
+    orderType: Optional[str] = None
+    buySell: Optional[str] = None
+    quantity: Optional[float] = None
+    price: Optional[float] = None
+    basis: Optional[float] = None
+    strategyDisplayName: Optional[str] = None
+    contractId: Optional[str] = None
+    expiryDate: Optional[str] = None
+
+
+class OrderResponse(OrderBase):
     id: str
     created_at: datetime
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 # -------- Trades --------
 class TradeRequest(BaseModel):
     index: str

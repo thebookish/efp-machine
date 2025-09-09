@@ -13,14 +13,14 @@ class Order(Base):
 
     id = Column(String, primary_key=True, index=True)
     message = Column(String, nullable=False)
-    orderType = Column(String, default="SINGLE")
-    buySell = Column(String, nullable=False)   # BUY / SELL
-    quantity = Column(Float, default=1.0)
+    orderType = Column(String, nullable=False)
+    buySell = Column(String, nullable=False)
+    quantity = Column(Float, nullable=False)
     price = Column(Float, nullable=False)
     basis = Column(Float, nullable=False)
-    strategyDisplayName = Column(String, default="TRF")
-    contractId = Column(String, nullable=False)  # e.g. SX5E
-    expiryDate = Column(String, nullable=False)  # e.g. DEC26
+    strategyDisplayName = Column(String, nullable=False)
+    contractId = Column(String, nullable=False)
+    expiryDate = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class EfpRun(Base):
