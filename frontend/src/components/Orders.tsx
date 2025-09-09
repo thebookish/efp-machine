@@ -52,12 +52,12 @@ export default function Orders() {
           <tr>
             <th>Message</th>
             <th>OrderType</th>
-            <th>Side</th>
+            <th>Buy/Sell</th>
             <th>Qty</th>
             <th>Price</th>
             <th>Basis</th>
-            <th>Strategy</th>
-            <th>Contract</th>
+            <th>StrategyDisplayName</th>
+            <th>ContractId</th>
             <th>Expiry</th>
           </tr>
         </thead>
