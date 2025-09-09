@@ -23,6 +23,7 @@ dependencies = [
   'starlette>=0.37.2',
   'python-dateutil>=2.9.0.post0',
   'yfinance'
+  'python-multipart'
 ]
 
 [project.optional-dependencies]
