@@ -92,6 +92,7 @@ async def upload_bbg_file(file: UploadFile = File(...), db: AsyncSession = Depen
             symbol=parsed.symbol,
             expiry=parsed.expiry,
             side=parsed.side,
+            quantity=parsed.quantity,
             price=parsed.price,
             basis=parsed.basis,
         )

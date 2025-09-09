@@ -8,6 +8,7 @@ class OrderCreate(BaseModel):
     symbol: str
     expiry: str
     side: str
+    quantity: float
     price: float
     basis: float
 
