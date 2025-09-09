@@ -113,22 +113,20 @@ async def _push_full_list(db: AsyncSession):
 async def orders_ws(ws: WebSocket, db: AsyncSession = Depends(get_db)):
     await manager.connect(ws)
     try:
-        # Send latest list immediately
+        # Send the latest list immediately
         await ws.send_json({
             "type": "orders_list",
             "payload": _serialize_orders(await _fetch_orders(db)),
         })
+
+        # Then just keep it alive until the client disconnects
         while True:
-            # Keep connection alive (ignore client messages)
-            await ws.receive_text()
+            await asyncio.sleep(3600)  # long sleep, keeps loop alive
     except WebSocketDisconnect:
         await manager.disconnect(ws)
-    except Exception:
+    finally:
         await manager.disconnect(ws)
-        try:
-            await ws.close()
-        except Exception:
-            pass
+
 
 # --- Upload BBG JSON file ---
 @router.post("/upload")
