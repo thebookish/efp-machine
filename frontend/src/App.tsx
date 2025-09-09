@@ -6,6 +6,7 @@ import ChatPanel from "./components/ChatPanel";
 import MarketValuesPanel from "./components/MarketValuesPanel";
 import PredictionPanel from "./components/PredictionPanel";
 import BlotterPanel from "./components/BlotterPanel";
+import UploadJson from "./components/bbg_upload";
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
           </div>
         </div>
         <div className="md:col-span-2 space-y-6">
+          <UploadJson/>
            {/* <PredictionPanel/> */}
           <BlotterPanel />
         </div>
