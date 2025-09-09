@@ -46,7 +46,7 @@ export default function Orders() {
   return (
     <div className="p-6">
       <h1 className="text-xl font-bold mb-4">Orders</h1>
-      <input type="file" accept=".json" onChange={handleUpload} />
+      {/* <input type="file" accept=".json" onChange={handleUpload} /> */}
       <table className="min-w-full border mt-4">
         <thead>
           <tr>
