@@ -61,19 +61,9 @@ export default function Orders() {
     <div className="p-6">
       <h1 className="text-xl font-bold mb-4">Orders</h1>
 
-      {/* Upload button */}
-      <input
-        type="file"
-        accept=".json"
-        onChange={handleUpload}
-        className="mb-4"
-      />
-
-      {loading && <p>Uploading...</p>}
-
       {/* Orders table */}
       <table className="min-w-full border border-gray-300">
-        <thead className="bg-gray-100">
+        <thead className="bg-black">
           <tr>
             <th className="border p-2">ID</th>
             <th className="border p-2">Symbol</th>
