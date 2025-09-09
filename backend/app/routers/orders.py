@@ -61,6 +61,7 @@ from app.services.parse import parse_bbg_message
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 
+
 @router.post("/upload")
 async def upload_bbg_file(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
     if not file.filename.endswith(".json"):
@@ -89,12 +90,19 @@ async def upload_bbg_file(file: UploadFile = File(...), db: AsyncSession = Depen
             id=str(uuid.uuid4()),
             client_provided_id=parsed.client_provided_id,
             symbol=parsed.symbol,
+            expiry=parsed.expiry,
             side=parsed.side,
-            basis= parsed.basis,
             price=parsed.price,
+            basis=parsed.basis,
         )
         db.add(order)
         inserted += 1
 
     await db.commit()
     return {"inserted": inserted, "status": "ok"}
+
+
+@router.get("/list", response_model=list[OrderResponse])
+async def list_orders(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Order).order_by(Order.created_at.desc()))
+    return result.scalars().all()

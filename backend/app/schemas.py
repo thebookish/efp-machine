@@ -3,7 +3,7 @@ from pydantic import BaseModel,Field
 from datetime import datetime
 from typing import Optional
 
-class OrderBase(BaseModel):
+class OrderCreate(BaseModel):
     client_provided_id: str
     symbol: str
     expiry: str
@@ -11,10 +11,8 @@ class OrderBase(BaseModel):
     price: float
     basis: float
 
-class OrderCreate(OrderBase):
-    pass
 
-class OrderResponse(OrderBase):
+class OrderResponse(OrderCreate):
     id: str
     created_at: datetime
 
