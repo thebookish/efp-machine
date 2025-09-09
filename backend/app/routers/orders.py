@@ -97,7 +97,7 @@ async def _fetch_orders(db: AsyncSession) -> list[Order]:
 
 def _serialize_orders(orders: list[Order]) -> list[dict]:
     return [
-        OrderResponse.model_validate(o, from_attributes=True).model_dump()
+        OrderResponse.model_validate(o, from_attributes=True).model_dump(mode="json")
         for o in orders
     ]
 
