@@ -21,6 +21,8 @@ type Order = {
 
 export default function Orders() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editData, setEditData] = useState<Partial<Order>>({});
 
   const fetchOrders = async () => {
     const { data } = await api.get("/api/orders/list");
@@ -43,6 +45,23 @@ export default function Orders() {
     await fetchOrders();
   };
 
+  const startEdit = (order: Order) => {
+    setEditingId(order.id);
+    setEditData({ ...order });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditData({});
+  };
+
+  const saveEdit = async (orderId: string) => {
+    await api.put(`/api/orders/edit/${orderId}`, editData);
+    setEditingId(null);
+    setEditData({});
+    await fetchOrders();
+  };
+
   return (
     <div className="p-6">
       <h1 className="text-xl font-bold mb-4">Orders</h1>
@@ -59,20 +78,101 @@ export default function Orders() {
             <th>StrategyDisplayName</th>
             <th>ContractId</th>
             <th>Expiry</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           {orders.map((o) => (
             <tr key={o.id}>
-              <td>{o.message}</td>
+              <td>
+                {editingId === o.id ? (
+                  <input
+                    value={editData.message || ""}
+                    onChange={(e) =>
+                      setEditData({ ...editData, message: e.target.value })
+                    }
+                  />
+                ) : (
+                  o.message
+                )}
+              </td>
               <td>{o.orderType}</td>
-              <td>{o.buySell}</td>
-              <td>{o.quantity}</td>
-              <td>{o.price}</td>
+              <td>
+                {editingId === o.id ? (
+                  <select
+                    value={editData.buySell || ""}
+                    onChange={(e) =>
+                      setEditData({ ...editData, buySell: e.target.value })
+                    }
+                  >
+                    <option value="BUY">BUY</option>
+                    <option value="SELL">SELL</option>
+                  </select>
+                ) : (
+                  o.buySell
+                )}
+              </td>
+              <td>
+                {editingId === o.id ? (
+                  <input
+                    type="number"
+                    value={editData.quantity || 0}
+                    onChange={(e) =>
+                      setEditData({
+                        ...editData,
+                        quantity: Number(e.target.value),
+                      })
+                    }
+                  />
+                ) : (
+                  o.quantity
+                )}
+              </td>
+              <td>
+                {editingId === o.id ? (
+                  <input
+                    type="number"
+                    value={editData.price || 0}
+                    onChange={(e) =>
+                      setEditData({
+                        ...editData,
+                        price: Number(e.target.value),
+                      })
+                    }
+                  />
+                ) : (
+                  o.price
+                )}
+              </td>
               <td>{o.basis}</td>
               <td>{o.strategyDisplayName}</td>
               <td>{o.contractId}</td>
               <td>{o.expiryDate}</td>
+              <td>
+                {editingId === o.id ? (
+                  <>
+                    <button
+                      className="bg-green-500 text-white px-2 py-1 mr-2 rounded"
+                      onClick={() => saveEdit(o.id)}
+                    >
+                      Save
+                    </button>
+                    <button
+                      className="bg-gray-400 text-white px-2 py-1 rounded"
+                      onClick={cancelEdit}
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="bg-blue-500 text-white px-2 py-1 rounded"
+                    onClick={() => startEdit(o)}
+                  >
+                    Edit
+                  </button>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
