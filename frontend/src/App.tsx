@@ -7,6 +7,7 @@ import MarketValuesPanel from "./components/MarketValuesPanel";
 import PredictionPanel from "./components/PredictionPanel";
 import BlotterPanel from "./components/BlotterPanel";
 import UploadJson from "./components/bbg_upload";
+import Orders from "./components/Orders";
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
         <div className="md:col-span-2 space-y-6">
           <UploadJson/>
            {/* <PredictionPanel/> */}
+           <Orders/>
           <BlotterPanel />
         </div>
       </div>
