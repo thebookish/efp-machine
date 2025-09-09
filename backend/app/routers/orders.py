@@ -98,8 +98,12 @@ async def _fetch_orders(db: AsyncSession) -> list[Order]:
     return list(result.scalars().all())
 
 def _serialize_orders(orders: list[Order]) -> list[dict]:
-    # Pydantic v2: from_attributes=True
-    return [OrderResponse.model_validate(o, from_attributes=True).model_dump() for o in orders]
+    # Make sure all fields are JSON-serializable (datetimes -> ISO strings)
+    return [
+        OrderResponse.model_validate(o, from_attributes=True).model_dump(mode="json")
+        for o in orders
+    ]
+
 
 async def _push_full_list(db: AsyncSession):
     orders = await _fetch_orders(db)
@@ -113,19 +117,29 @@ async def _push_full_list(db: AsyncSession):
 async def orders_ws(ws: WebSocket, db: AsyncSession = Depends(get_db)):
     await manager.connect(ws)
     try:
-        # On connect: send the latest list immediately
+        # Send initial list
         await ws.send_json({
             "type": "orders_list",
             "payload": _serialize_orders(await _fetch_orders(db)),
         })
-        # Keep the socket alive; accept optional pings from client
-        while True:
-            # We don't need client messages, but this keeps the connection from idling out
-            await ws.receive_text()
+
+        async def sender():
+            while True:
+                await asyncio.sleep(25)
+                try:
+                    await ws.send_json({"type": "ping"})
+                except Exception:
+                    break
+
+        async def receiver():
+            # optional: accept pings or no-op messages from client
+            while True:
+                _ = await ws.receive_text()  # ignore, just keep connection active
+
+        await asyncio.gather(sender(), receiver())
     except WebSocketDisconnect:
         await manager.disconnect(ws)
     except Exception:
-        # Any other error => close gracefully
         await manager.disconnect(ws)
         try:
             await ws.close()
