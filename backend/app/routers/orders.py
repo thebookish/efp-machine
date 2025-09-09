@@ -36,7 +36,7 @@ async def load_bbg_data(db: AsyncSession = Depends(get_db)):
             client_provided_id=parsed.client_provided_id,
             symbol=parsed.symbol,
             side=parsed.side,
-            quantity=parsed.quantity,
+            basis=parsed.basis,
             price=parsed.price,
         )
         db.add(order)

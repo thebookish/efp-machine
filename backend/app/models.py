@@ -6,15 +6,26 @@ from sqlalchemy.sql import func
 Base = declarative_base()
 
 
+
 class Order(Base):
     __tablename__ = "orders"
 
     id = Column(String, primary_key=True, index=True)
     client_provided_id = Column(String, unique=True, nullable=False)
-    symbol = Column(String, nullable=False)
-    side = Column(String, CheckConstraint("side IN ('BUY','SELL')"), nullable=False)
-    quantity = Column(Float, nullable=False)
-    price = Column(Float, nullable=False)
+
+    symbol = Column(String, nullable=False)        # e.g., SX5E
+    expiry = Column(String, nullable=False)        # e.g., DEC25
+
+    side = Column(
+        String,
+        CheckConstraint("side IN ('BUY','SELL')"),
+        nullable=False,
+    )
+
+    quantity = Column(Float, nullable=False, default=1.0)  # Bloomberg msg has no qty → default 1
+    price = Column(Float, nullable=False)                  # TRF price (spread, e.g., 61)
+    basis = Column(Float, nullable=False)                  # Basis (e.g., 3.75)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class EfpRun(Base):

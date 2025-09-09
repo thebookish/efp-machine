@@ -6,9 +6,10 @@ from typing import Optional
 class OrderBase(BaseModel):
     client_provided_id: str
     symbol: str
+    expiry: str
     side: str
-    quantity: float
     price: float
+    basis: float
 
 class OrderCreate(OrderBase):
     pass
