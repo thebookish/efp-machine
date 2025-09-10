@@ -26,7 +26,6 @@ async def order_worker(session_factory, batch_size=500, flush_interval=0.5):
         if batch:
             dicts = [
                 {
-                    "id": item.id,
                     "message": item.message,
                     "orderType": item.orderType,
                     "buySell": item.buySell,
