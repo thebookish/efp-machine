@@ -11,16 +11,32 @@ def to_async_url(url_str: str) -> str:
     elif u.drivername.startswith("postgresql"):
         u = u.set(drivername="postgresql+asyncpg")
     return str(u)
-async_url = settings.DATABASE_URL
 
-engine = create_async_engine(async_url, echo=False, future=True)
-AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+async_url = to_async_url(settings.DATABASE_URL)
+
+# Configure engine with better pooling
+engine = create_async_engine(
+    async_url,
+    echo=False,
+    future=True,
+    pool_size=20,        # default is 5
+    max_overflow=40,     # allow 40 extra connections on demand
+    pool_timeout=30,     # seconds to wait before giving up
+    pool_recycle=1800,   # recycle every 30 mins
+)
+
+# Session factory
+AsyncSessionLocal = sessionmaker(
+    bind=engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+)
 
 async def get_db() -> AsyncSession:
     async with AsyncSessionLocal() as session:
         yield session
-# add this near the bottom of deps.py
+
+# Utility for background jobs (outside of FastAPI request context)
 async def create_session() -> AsyncSession:
-    """Utility for background jobs (non-request context)."""
     async with AsyncSessionLocal() as session:
         yield session
