@@ -13,6 +13,8 @@ class OrderBase(BaseModel):
     strategyDisplayName: str
     contractId: str
     expiryDate: str
+    response: str
+    timestamp: datetime
 
 
 class OrderCreate(OrderBase):
@@ -30,6 +32,8 @@ class OrderUpdate(BaseModel):
     strategyDisplayName: Optional[str] = None
     contractId: Optional[str] = None
     expiryDate: Optional[str] = None
+    response: Optional[str] = None
+    timestamp: Optional[datetime] = None
 
 
 class OrderResponse(OrderBase):

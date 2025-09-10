@@ -37,6 +37,8 @@ async def order_worker(session_factory, batch_size=500, flush_interval=0.5):
                     "strategyDisplayName": item.strategyDisplayName,
                     "contractId": item.contractId,
                     "expiryDate": item.expiryDate,
+                    "response": item.response,
+                    "timestamp": item.timestamp,
                 }
                 for item in batch
             ]

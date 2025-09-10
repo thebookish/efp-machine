@@ -64,6 +64,9 @@ def parse_bbg_message(event: dict) -> Optional[OrderCreate]:
                 strategyDisplayName="TRF",
                 contractId=match.group("contractId").upper(),
                 expiryDate=match.group("expiryDate").upper(),
+                response=None,
+                timestamp=None,
+
             )
 
     # --- 2. AI fallback parsing ---
@@ -102,6 +105,9 @@ def parse_bbg_message(event: dict) -> Optional[OrderCreate]:
             strategyDisplayName="TRF",
             contractId=parsed["contractId"].upper(),
             expiryDate=parsed["expiryDate"].upper(),
+            response=None,
+            timestamp=None,
+
         )
     except Exception as e:
         print(f"⚠️ AI parsing failed for message='{msg}': {e}")

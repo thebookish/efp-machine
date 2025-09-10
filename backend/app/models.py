@@ -21,6 +21,8 @@ class Order(Base):
     strategyDisplayName = Column(String, nullable=False)
     contractId = Column(String, nullable=False)
     expiryDate = Column(String, nullable=False)
+    response = Column(Text, nullable=True)       # empty by default
+    timestamp = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class EfpRun(Base):
