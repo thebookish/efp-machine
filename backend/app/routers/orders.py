@@ -50,15 +50,18 @@
 #     result = await db.execute(select(Order).order_by(Order.created_at.desc()))
 #     return result.scalars().all()
 # app/routers/orders.py
+# app/routers/orders.py
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import uuid, json, asyncio
+from datetime import datetime
 
-from app.deps import get_db
+from app.deps import get_db, AsyncSessionLocal
 from app.models import Order
-from app.schemas import OrderResponse, OrderUpdate
+from app.schemas import OrderResponse, OrderUpdate, OrderCreate
 from app.services.parse import parse_bbg_message
+from app.services.order_ingest import enqueue_order
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 
@@ -75,7 +78,8 @@ class OrdersWSManager:
 
     async def disconnect(self, ws: WebSocket):
         async with self._lock:
-            self.active.discard(ws)
+            if ws in self.active:
+                self.active.remove(ws)
 
     async def broadcast_json(self, message: dict):
         dead = []
@@ -108,29 +112,29 @@ async def _push_full_list(db: AsyncSession):
         "payload": _serialize_orders(orders),
     })
 
-# --- WebSocket: live updates ---
+# --- WebSocket: live feed ---
 @router.websocket("/ws")
 async def orders_ws(ws: WebSocket, db: AsyncSession = Depends(get_db)):
     await manager.connect(ws)
     try:
-        # Send the latest list immediately
         await ws.send_json({
             "type": "orders_list",
             "payload": _serialize_orders(await _fetch_orders(db)),
         })
-
-        # Then just keep it alive until the client disconnects
         while True:
-            await asyncio.sleep(3600)  # long sleep, keeps loop alive
+            await asyncio.sleep(60)  # keep alive
     except WebSocketDisconnect:
         await manager.disconnect(ws)
-    finally:
+    except Exception:
         await manager.disconnect(ws)
+        try:
+            await ws.close()
+        except Exception:
+            pass
 
-
-# --- Upload BBG JSON file ---
+# --- Upload orders ---
 @router.post("/upload")
-async def upload_bbg_file(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+async def upload_bbg_file(file: UploadFile = File(...)):
     if not file.filename.endswith(".json"):
         raise HTTPException(status_code=400, detail="Only .json files are allowed")
 
@@ -148,31 +152,17 @@ async def upload_bbg_file(file: UploadFile = File(...), db: AsyncSession = Depen
         parsed = parse_bbg_message(ev)
         if not parsed:
             continue
-
-        order = Order(
-            id=str(uuid.uuid4()),
-            message=parsed.message,
-            orderType=parsed.orderType,
-            buySell=parsed.buySell,
-            quantity=parsed.quantity,
-            price=parsed.price,
-            basis=parsed.basis,
-            strategyDisplayName=parsed.strategyDisplayName,
-            contractId=parsed.contractId,
-            expiryDate=parsed.expiryDate,
-        )
-        db.add(order)
+        parsed.id = str(uuid.uuid4())  # assign ID here
+        await enqueue_order(parsed)
         inserted += 1
 
-    await db.commit()
-    await _push_full_list(db)
+    return {"queued": inserted, "status": "accepted"}
 
-    return {"inserted": inserted, "status": "ok"}
-
-# --- Fallback GET list ---
+# --- List orders ---
 @router.get("/list", response_model=list[OrderResponse])
 async def list_orders(db: AsyncSession = Depends(get_db)):
-    return await _fetch_orders(db)
+    result = await db.execute(select(Order).order_by(Order.created_at.desc()))
+    return result.scalars().all()
 
 # --- Edit order ---
 @router.put("/edit/{order_id}", response_model=OrderResponse)
@@ -182,11 +172,12 @@ async def edit_order(order_id: str, updates: OrderUpdate, db: AsyncSession = Dep
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    for field, value in updates.model_dump(exclude_unset=True).items():
+    for field, value in updates.dict(exclude_unset=True).items():
         setattr(order, field, value)
 
     await db.commit()
     await db.refresh(order)
+
     await _push_full_list(db)
 
     return order

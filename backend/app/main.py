@@ -1,9 +1,10 @@
 # backend/app/main.py
 from app.services.efp_run import fetch_daily_efp_run
+from app.services.order_ingest import order_worker
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.deps import engine
+from app.deps import AsyncSessionLocal, engine
 from app.routers import efp, ai, health, blotter, quotes, orders
 from app.services.scheduler import start_scheduler
 from app.utils.time import now_uk
@@ -40,7 +41,8 @@ async def root():
 @app.on_event("startup")
 
 async def startup_event():
-    start_scheduler()
+    for _ in range(2):
+        asyncio.create_task(order_worker(AsyncSessionLocal))
     # Ensure tables exist
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
