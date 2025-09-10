@@ -152,7 +152,6 @@ async def upload_bbg_file(file: UploadFile = File(...)):
         parsed = parse_bbg_message(ev)
         if not parsed:
             continue
-        parsed.id = str(uuid.uuid4())  # assign ID here
         await enqueue_order(parsed)
         inserted += 1
 

@@ -1,5 +1,6 @@
 # app/services/order_ingest.py
 import asyncio
+import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import insert
 from app.models import Order
@@ -26,6 +27,7 @@ async def order_worker(session_factory, batch_size=500, flush_interval=0.5):
         if batch:
             dicts = [
                 {
+                    "id": str(uuid.uuid4()),
                     "message": item.message,
                     "orderType": item.orderType,
                     "buySell": item.buySell,
