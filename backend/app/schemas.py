@@ -13,9 +13,8 @@ class OrderBase(BaseModel):
     strategyDisplayName: str
     contractId: str
     expiryDate: str
-    response: str
-    timestamp: datetime
-
+    response: Optional[str] = None
+    timestamp: Optional[datetime] = None
 
 class OrderCreate(OrderBase):
     pass
