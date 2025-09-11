@@ -40,19 +40,19 @@ async def root():
     return {"message": "EFP Machine backend is running"}
 
 @app.on_event("startup")
+
 async def startup_event():
+    for _ in range(2):
+        asyncio.create_task(order_worker(AsyncSessionLocal))
     # Ensure tables exist
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-
-    # Load users.csv into DB safely
+    # Auto-generate daily EFP run if DB empty
+    await fetch_daily_efp_run()
+    # Load users.csv into DB
     async with AsyncSessionLocal() as session:
         await load_users_from_csv(session)
 
-    # Start workers (pass the session factory, not a live session)
-    for _ in range(2):
-        asyncio.create_task(order_worker(AsyncSessionLocal))
-
-    # Trigger initial EFP run (creates its own session inside)
-    await fetch_daily_efp_run()
+    # Start order worker
+    asyncio.create_task(order_worker(AsyncSessionLocal))
 
