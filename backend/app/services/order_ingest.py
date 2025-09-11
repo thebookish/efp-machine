@@ -19,9 +19,9 @@ async def enrich_order_with_user(session: AsyncSession, order_dict: dict) -> dic
     and fill b_client/o_client, bids/offers.
     """
     sender_uuid = order_dict.get("content_event_messages_0_sender_uuid")
-    requester_uuid = order_dict.get("requester_uuid")
+    # requester_uuid = order_dict.get("requester_uuid")
 
-    uuid_to_lookup = sender_uuid or requester_uuid
+    uuid_to_lookup = sender_uuid 
     if not uuid_to_lookup:
         return order_dict
 
