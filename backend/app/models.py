@@ -92,7 +92,7 @@ class Order(Base):
     pub_offer= Column(Text, nullable=True)
     # NEW: enrichment from users by UUID
     alias = Column(String, nullable=True)
-    legalEntityshortName = Column(String, nullable=True)
+    legalEntityShortName = Column(String, nullable=True)
     response = Column(Text, nullable=True)
     timestamp = Column(DateTime(timezone=True), nullable=True)
 class EfpRun(Base):
