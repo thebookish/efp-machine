@@ -86,7 +86,7 @@ async def order_worker(session_factory, batch_size=500, flush_interval=0.5):
                     "currency": item.currency,
                     "strategyID": item.strategyID,
                     "strategyDescription": item.strategyDescription,
-                    "tradeableId": item.tradeableId,
+                    "tradeable_Id": item.tradeable_Id,
                     "contractId": item.contractId,
                     "contractName": item.contractName,
                     "strategyID_1": item.strategyID_1,
