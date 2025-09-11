@@ -1,55 +1,3 @@
-# # app/services/order_ingest.py
-# import asyncio
-# import uuid
-# from sqlalchemy.ext.asyncio import AsyncSession
-# from sqlalchemy import insert
-# from app.models import Order
-# from app.schemas import OrderCreate
-
-# ORDER_QUEUE = asyncio.Queue(maxsize=10000)  # prevents memory runaway
-
-# async def enqueue_order(order: OrderCreate):
-#     """Put a parsed order into queue."""
-#     await ORDER_QUEUE.put(order)
-
-# async def order_worker(session_factory, batch_size=500, flush_interval=0.5):
-#     """Worker: drains ORDER_QUEUE, inserts in batches."""
-#     while True:
-#         batch: list[OrderCreate] = []
-#         try:
-#             # Collect up to batch_size or until timeout
-#             for _ in range(batch_size):
-#                 item = await asyncio.wait_for(ORDER_QUEUE.get(), timeout=flush_interval)
-#                 batch.append(item)
-#         except asyncio.TimeoutError:
-#             pass  # no more orders right now
-
-#         if batch:
-#             dicts = [
-#                 {
-#                     "id": str(uuid.uuid4()),
-#                     "message": item.message,
-#                     "orderType": item.orderType,
-#                     "buySell": item.buySell,
-#                     "quantity": item.quantity,
-#                     "price": item.price,
-#                     "basis": item.basis,
-#                     "strategyDisplayName": item.strategyDisplayName,
-#                     "contractId": item.contractId,
-#                     "expiryDate": item.expiryDate,
-#                     "response": item.response,
-#                     "timestamp": item.timestamp,
-#                 }
-#                 for item in batch
-#             ]
-
-#             async with session_factory() as session:
-#                 async with session.begin():
-#                     await session.execute(insert(Order), dicts)
-
-#             # mark as done
-#             for _ in batch:
-#                 ORDER_QUEUE.task_done()
 import asyncio
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,7 +5,7 @@ from sqlalchemy import insert, select
 from app.models import Order, User
 from app.schemas import OrderCreate
 
-ORDER_QUEUE = asyncio.Queue(maxsize=10000)  # buffer
+ORDER_QUEUE = asyncio.Queue(maxsize=10000)  # prevents memory runaway
 
 
 async def enqueue_order(order: OrderCreate):
@@ -67,12 +15,12 @@ async def enqueue_order(order: OrderCreate):
 
 async def enrich_order_with_user(session: AsyncSession, order_dict: dict) -> dict:
     """
-    Look up user table by uuid, add alias and legalEntityshortName.
+    Look up user table by uuid, add alias, legalEntityshortName,
+    and fill b_client/o_client, bids/offers.
     """
     sender_uuid = order_dict.get("content_event_messages_0_sender_uuid")
     requester_uuid = order_dict.get("requester_uuid")
 
-    # Prefer sender uuid if present, else requester
     uuid_to_lookup = sender_uuid or requester_uuid
     if not uuid_to_lookup:
         return order_dict
@@ -82,6 +30,18 @@ async def enrich_order_with_user(session: AsyncSession, order_dict: dict) -> dic
     if user:
         order_dict["alias"] = user.alias
         order_dict["legalEntityshortName"] = user.legalEntityshortName
+
+        # Business rules
+        if order_dict.get("buySell") == "BUY":
+            order_dict["b_client"] = user.legalEntityshortName
+            order_dict["o_client"] = None
+            order_dict["bids"] = order_dict.get("price")
+            order_dict["offers"] = None
+        elif order_dict.get("buySell") == "SELL":
+            order_dict["b_client"] = None
+            order_dict["o_client"] = user.legalEntityshortName
+            order_dict["bids"] = None
+            order_dict["offers"] = order_dict.get("price")
 
     return order_dict
 
@@ -104,7 +64,6 @@ async def order_worker(session_factory, batch_size=500, flush_interval=0.5):
         if not batch:
             continue
 
-        # Convert to dicts
         dicts = []
         async with session_factory() as session:
             for item in batch:
@@ -127,7 +86,7 @@ async def order_worker(session_factory, batch_size=500, flush_interval=0.5):
                     "currency": item.currency,
                     "strategyID": item.strategyID,
                     "strategyDescription": item.strategyDescription,
-                    "tradeable_Id": item.tradeable_Id,
+                    "tradeableId": item.tradeableId,
                     "contractId": item.contractId,
                     "contractName": item.contractName,
                     "strategyID_1": item.strategyID_1,
@@ -144,9 +103,16 @@ async def order_worker(session_factory, batch_size=500, flush_interval=0.5):
                     "refPrice": item.refPrice,
                     "response": item.response,
                     "timestamp": item.timestamp,
+                    # placeholders for enrichment
+                    "alias": None,
+                    "legalEntityshortName": None,
+                    "b_client": None,
+                    "o_client": None,
+                    "bids": None,
+                    "offers": None,
                 }
 
-                # ✅ enrich with alias + legalEntityshortName
+                # ✅ enrich with user info + buyer/seller fields
                 order_dict = await enrich_order_with_user(session, order_dict)
                 dicts.append(order_dict)
 
