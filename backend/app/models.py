@@ -48,7 +48,7 @@ class Order(Base):
     currency = Column(String, nullable=True)
     strategyID = Column(String, nullable=True)
     strategyDescription = Column(Text, nullable=True)
-    tradeableId = Column(String, nullable=True)
+    tradeable_Id = Column(String, nullable=True)
     contractId = Column(String, nullable=True)
     contractName = Column(String, nullable=True)
     strategyID_1 = Column(String, nullable=True)

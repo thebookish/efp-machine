@@ -22,7 +22,7 @@ class OrderCreate(BaseModel):
     currency: Optional[str] = None
     strategyID: Optional[str] = None
     strategyDescription: Optional[str] = None
-    tradeableId: Optional[str] = None
+    tradeable_Id: Optional[str] = None
     contractId: Optional[str] = None
     contractName: Optional[str] = None
     strategyID_1: Optional[str] = None

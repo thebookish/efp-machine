@@ -294,7 +294,7 @@ def normalize_record(rec: dict) -> dict:
         "currency",
         "strategyID",
         "strategyDescription",
-        "tradeableId",
+        "tradeable_Id",
         "contractId",
         "contractName",
         "strategyID_1",
@@ -327,6 +327,7 @@ async def upload_csv_file(file: UploadFile = File(...)):
 
         # normalize headers
         df.columns = [c.replace(".", "_") for c in df.columns]
+        df.columns = [c.replace(" ", "_") for c in df.columns]
         df = df.where(pd.notnull(df), None)
 
         records = df.to_dict(orient="records")
