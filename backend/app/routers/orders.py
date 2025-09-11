@@ -276,7 +276,7 @@ async def orders_ws(ws: WebSocket, db: AsyncSession = Depends(get_db)):
 
 
 # --- Upload CSV ---
-@router.post("/upload_csv")
+@router.post("/upload")
 async def upload_csv_file(file: UploadFile = File(...)):
     if not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only .csv files allowed")
