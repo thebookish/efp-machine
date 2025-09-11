@@ -51,19 +51,158 @@
 #     return result.scalars().all()
 # app/routers/orders.py
 # app/routers/orders.py
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect
+# from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect
+# from sqlalchemy.ext.asyncio import AsyncSession
+# from sqlalchemy import select
+# import uuid, json, asyncio
+# from datetime import datetime
+
+# from app.deps import get_db, AsyncSessionLocal
+# from app.models import Order
+# from app.schemas import OrderResponse, OrderUpdate, OrderCreate
+# from app.services.parse import parse_bbg_message
+# from app.services.order_ingest import enqueue_order
+
+# router = APIRouter(prefix="/api/orders", tags=["orders"])
+
+# # --- WebSocket manager ---
+# class OrdersWSManager:
+#     def __init__(self):
+#         self._lock = asyncio.Lock()
+#         self.active: set[WebSocket] = set()
+
+#     async def connect(self, ws: WebSocket):
+#         await ws.accept()
+#         async with self._lock:
+#             self.active.add(ws)
+
+#     async def disconnect(self, ws: WebSocket):
+#         async with self._lock:
+#             if ws in self.active:
+#                 self.active.remove(ws)
+
+#     async def broadcast_json(self, message: dict):
+#         dead = []
+#         async with self._lock:
+#             for ws in list(self.active):
+#                 try:
+#                     await ws.send_json(message)
+#                 except Exception:
+#                     dead.append(ws)
+#             for ws in dead:
+#                 self.active.discard(ws)
+
+# manager = OrdersWSManager()
+
+# # --- Helpers ---
+# async def _fetch_orders(db: AsyncSession) -> list[Order]:
+#     result = await db.execute(select(Order).order_by(Order.created_at.desc()))
+#     return list(result.scalars().all())
+
+# def _serialize_orders(orders: list[Order]) -> list[dict]:
+#     return [
+#         OrderResponse.model_validate(o, from_attributes=True).model_dump(mode="json")
+#         for o in orders
+#     ]
+
+# async def _push_full_list(db: AsyncSession):
+#     orders = await _fetch_orders(db)
+#     await manager.broadcast_json({
+#         "type": "orders_list",
+#         "payload": _serialize_orders(orders),
+#     })
+
+# # --- WebSocket: live feed ---
+# @router.websocket("/ws")
+# async def orders_ws(ws: WebSocket, db: AsyncSession = Depends(get_db)):
+#     await manager.connect(ws)
+#     try:
+#         await ws.send_json({
+#             "type": "orders_list",
+#             "payload": _serialize_orders(await _fetch_orders(db)),
+#         })
+#         while True:
+#             await asyncio.sleep(60)  # keep alive
+#     except WebSocketDisconnect:
+#         await manager.disconnect(ws)
+#     except Exception:
+#         await manager.disconnect(ws)
+#         try:
+#             await ws.close()
+#         except Exception:
+#             pass
+
+# # --- Upload orders ---
+# @router.post("/upload")
+# async def upload_bbg_file(file: UploadFile = File(...)):
+#     if not file.filename.endswith(".json"):
+#         raise HTTPException(status_code=400, detail="Only .json files are allowed")
+
+#     try:
+#         contents = await file.read()
+#         events = json.loads(contents)
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Failed to parse JSON: {e}")
+
+#     if not isinstance(events, list):
+#         events = [events]
+
+#     inserted = 0
+#     for ev in events:
+#         parsed = parse_bbg_message(ev)
+#         if not parsed:
+#             continue
+#         await enqueue_order(parsed)
+#         inserted += 1
+
+#     return {"queued": inserted, "status": "accepted"}
+
+# # --- List orders ---
+# @router.get("/list", response_model=list[OrderResponse])
+# async def list_orders(db: AsyncSession = Depends(get_db)):
+#     result = await db.execute(select(Order).order_by(Order.created_at.desc()))
+#     return result.scalars().all()
+
+# # --- Edit order ---
+# @router.put("/edit/{order_id}", response_model=OrderResponse)
+# async def edit_order(order_id: str, updates: OrderUpdate, db: AsyncSession = Depends(get_db)):
+#     result = await db.execute(select(Order).where(Order.id == order_id))
+#     order = result.scalar_one_or_none()
+#     if not order:
+#         raise HTTPException(status_code=404, detail="Order not found")
+
+#     for field, value in updates.dict(exclude_unset=True).items():
+#         setattr(order, field, value)
+
+#     await db.commit()
+#     await db.refresh(order)
+
+#     await _push_full_list(db)
+
+#     return order
+
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    UploadFile,
+    File,
+    HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-import uuid, json, asyncio
-from datetime import datetime
+import uuid, asyncio
+import pandas as pd
 
-from app.deps import get_db, AsyncSessionLocal
+from app.deps import get_db
 from app.models import Order
 from app.schemas import OrderResponse, OrderUpdate, OrderCreate
-from app.services.parse import parse_bbg_message
 from app.services.order_ingest import enqueue_order
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
+
 
 # --- WebSocket manager ---
 class OrdersWSManager:
@@ -92,12 +231,15 @@ class OrdersWSManager:
             for ws in dead:
                 self.active.discard(ws)
 
+
 manager = OrdersWSManager()
 
+
 # --- Helpers ---
-async def _fetch_orders(db: AsyncSession) -> list[Order]:
+async def _fetch_orders(db: AsyncSession):
     result = await db.execute(select(Order).order_by(Order.created_at.desc()))
     return list(result.scalars().all())
+
 
 def _serialize_orders(orders: list[Order]) -> list[dict]:
     return [
@@ -105,24 +247,24 @@ def _serialize_orders(orders: list[Order]) -> list[dict]:
         for o in orders
     ]
 
+
 async def _push_full_list(db: AsyncSession):
     orders = await _fetch_orders(db)
-    await manager.broadcast_json({
-        "type": "orders_list",
-        "payload": _serialize_orders(orders),
-    })
+    await manager.broadcast_json(
+        {"type": "orders_list", "payload": _serialize_orders(orders)}
+    )
 
-# --- WebSocket: live feed ---
+
+# --- WebSocket feed ---
 @router.websocket("/ws")
 async def orders_ws(ws: WebSocket, db: AsyncSession = Depends(get_db)):
     await manager.connect(ws)
     try:
-        await ws.send_json({
-            "type": "orders_list",
-            "payload": _serialize_orders(await _fetch_orders(db)),
-        })
+        await ws.send_json(
+            {"type": "orders_list", "payload": _serialize_orders(await _fetch_orders(db))}
+        )
         while True:
-            await asyncio.sleep(60)  # keep alive
+            await asyncio.sleep(60)
     except WebSocketDisconnect:
         await manager.disconnect(ws)
     except Exception:
@@ -132,36 +274,37 @@ async def orders_ws(ws: WebSocket, db: AsyncSession = Depends(get_db)):
         except Exception:
             pass
 
-# --- Upload orders ---
+
+# --- Upload CSV ---
 @router.post("/upload")
-async def upload_bbg_file(file: UploadFile = File(...)):
-    if not file.filename.endswith(".json"):
-        raise HTTPException(status_code=400, detail="Only .json files are allowed")
+async def upload_csv(file: UploadFile = File(...)):
+    if not file.filename.endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only .csv files are allowed")
 
     try:
-        contents = await file.read()
-        events = json.loads(contents)
+        df = pd.read_csv(file.file)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to parse JSON: {e}")
-
-    if not isinstance(events, list):
-        events = [events]
+        raise HTTPException(status_code=500, detail=f"Failed to read CSV: {e}")
 
     inserted = 0
-    for ev in events:
-        parsed = parse_bbg_message(ev)
-        if not parsed:
-            continue
-        await enqueue_order(parsed)
-        inserted += 1
+    for _, row in df.iterrows():
+        data = row.to_dict()
+        try:
+            order = OrderCreate(**data)
+            await enqueue_order(order)
+            inserted += 1
+        except Exception as e:
+            print(f"⚠️ Skipping row due to validation error: {e}")
 
     return {"queued": inserted, "status": "accepted"}
+
 
 # --- List orders ---
 @router.get("/list", response_model=list[OrderResponse])
 async def list_orders(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Order).order_by(Order.created_at.desc()))
     return result.scalars().all()
+
 
 # --- Edit order ---
 @router.put("/edit/{order_id}", response_model=OrderResponse)
@@ -171,12 +314,10 @@ async def edit_order(order_id: str, updates: OrderUpdate, db: AsyncSession = Dep
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    for field, value in updates.dict(exclude_unset=True).items():
+    for field, value in updates.model_dump(exclude_unset=True).items():
         setattr(order, field, value)
 
     await db.commit()
     await db.refresh(order)
-
     await _push_full_list(db)
-
     return order

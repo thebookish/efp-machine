@@ -8,23 +8,66 @@ Base = declarative_base()
 
 
 
+# class Order(Base):
+#     __tablename__ = "orders"
+
+#     id = Column(String, primary_key=True, index=True)
+#     message = Column(String, nullable=False)
+#     orderType = Column(String, nullable=False)
+#     buySell = Column(String, nullable=False)
+#     quantity = Column(Float, nullable=False)
+#     price = Column(Float, nullable=False)
+#     basis = Column(Float, nullable=False)
+#     strategyDisplayName = Column(String, nullable=False)
+#     contractId = Column(String, nullable=False)
+#     expiryDate = Column(String, nullable=False)
+#     response = Column(Text, nullable=True)       # empty by default
+#     timestamp = Column(DateTime(timezone=True), nullable=True)
+#     created_at = Column(DateTime(timezone=True), server_default=func.now())
 class Order(Base):
     __tablename__ = "orders"
 
     id = Column(String, primary_key=True, index=True)
-    message = Column(String, nullable=False)
-    orderType = Column(String, nullable=False)
-    buySell = Column(String, nullable=False)
-    quantity = Column(Float, nullable=False)
-    price = Column(Float, nullable=False)
-    basis = Column(Float, nullable=False)
-    strategyDisplayName = Column(String, nullable=False)
-    contractId = Column(String, nullable=False)
-    expiryDate = Column(String, nullable=False)
-    response = Column(Text, nullable=True)       # empty by default
-    timestamp = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    # --- Exact CSV fields ---
+    content_event_eventId = Column(String, nullable=True)
+    content_event_messages_0_message = Column(Text, nullable=False)
+    content_event_messages_0_timestamp = Column(String, nullable=True)
+    content_event_messages_0_sender_uuid = Column(String, nullable=True)
+    requester_uuid = Column(String, nullable=True)
+    eurexContractCode = Column(String, nullable=True)
+    expiryDate = Column(String, nullable=True)
+    contractISIN = Column(String, nullable=True)
+    primaryAssetClass = Column(String, nullable=True)
+    baseProduct = Column(String, nullable=True)
+    subProduct = Column(String, nullable=True)
+    eurexProductISIN = Column(String, nullable=True)
+    underlyingIndex = Column(String, nullable=True)
+    underlyingIndexISIN = Column(String, nullable=True)
+    currency = Column(String, nullable=True)
+    strategyID = Column(String, nullable=True)
+    strategyDescription = Column(String, nullable=True)
+    tradeableId = Column(String, nullable=True)
+    contractId = Column(String, nullable=True)
+    contractName = Column(String, nullable=True)
+    strategyID_1 = Column(String, nullable=True)
+    strategyDisplayName = Column(String, nullable=True)
+    strategyBrandName = Column(String, nullable=True)
+    orderType = Column(String, nullable=True)
+    orderID = Column(String, nullable=True)
+    state = Column(String, nullable=True)
+    buySell = Column(String, nullable=True)
+    price = Column(Float, nullable=True)
+    basis = Column(Float, nullable=True)
+    linkedOrderID = Column(String, nullable=True)
+    refInstrument = Column(String, nullable=True)
+    refPrice = Column(Float, nullable=True)
+
+    # --- Extra fields ---
+    response = Column(Text, nullable=True)
+    timestamp = Column(DateTime(timezone=True), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 class EfpRun(Base):
     __tablename__ = 'efp_run'
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
