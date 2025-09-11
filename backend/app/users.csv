@@ -1,4 +1,4 @@
-shortName,userName,alias,tpPostingID,tpUserUID,tpDdeskUID,legalEntity,legalEntityshortName,role,uuid,firmId
+shortName,userName,alias,tpPostingID,tpUserUID,tpDdeskUID,legalEntity,legalEntityShortName,role,uuid,firmId
 PhilippeLaget,Philippe Laget,PL,159890,P2Mx,M013,Merrill Lynch International,ML,Trader,159890,9001
 FrancBarrabes,Franc Barrabes,FB,156440,P2xI,M007,BNP Paribas Financial Markets,BNP,Trader,156440,9002
 TesseraHughes,Tessera Hughes,TH,160905,P2Nl,M00e,UBS AG,UBS,Trader,160905,9003

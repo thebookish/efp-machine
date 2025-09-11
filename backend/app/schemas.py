@@ -13,7 +13,7 @@ class UserCreate(BaseModel):
     tpUserUID: Optional[str] = None
     tpDdeskUID: Optional[str] = None
     legalEntity: Optional[str] = None
-    legalEntityshortName: Optional[str] = None
+    legalEntityShortName: Optional[str] = None
     role: Optional[str] = None
     firmId: Optional[str] = None
 

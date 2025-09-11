@@ -37,7 +37,7 @@ class User(Base):
     tpUserUID = Column(String, nullable=True)
     tpDdeskUID = Column(String, nullable=True)
     legalEntity = Column(String, nullable=True)                  # "Merrill Lynch International"
-    legalEntityshortName = Column(String, nullable=True)         # "ML"
+    legalEntityShortName = Column(String, nullable=True)         # "ML"
     role = Column(String, nullable=True)                         # Trader / Broker
     firmId = Column(String, nullable=True)                       # "9001"
 

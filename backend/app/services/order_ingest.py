@@ -29,17 +29,17 @@ async def enrich_order_with_user(session: AsyncSession, order_dict: dict) -> dic
     user = result.scalar_one_or_none()
     if user:
         order_dict["alias"] = user.alias
-        order_dict["legalEntityShortName"] = user.legalEntityshortName
+        order_dict["legalEntityShortName"] = user.legalEntityShortName
 
         # Business rules
         if order_dict.get("buySell") == "Buy":
-            order_dict["b_client"] = user.legalEntityshortName
+            order_dict["b_client"] = user.legalEntityShortName
             order_dict["o_client"] = None
             order_dict["bids"] = order_dict.get("price")
             order_dict["offers"] = None
         elif order_dict.get("buySell") == "Sell":
             order_dict["b_client"] = None
-            order_dict["o_client"] = user.legalEntityshortName
+            order_dict["o_client"] = user.legalEntityShortName
             order_dict["bids"] = None
             order_dict["offers"] = order_dict.get("price")
 
@@ -97,7 +97,7 @@ async def order_worker(session_factory, batch_size=500, flush_interval=0.5):
                     "state": item.state,
                     "buySell": item.buySell,
                     "price": item.price,
-                    "basis": item.basis,
+                    "basis": 3.75,
                     "linkedOrderID": item.linkedOrderID,
                     "refInstrument": item.refInstrument,
                     "refPrice": item.refPrice,
