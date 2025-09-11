@@ -17,7 +17,7 @@ async def load_users_from_csv(session: AsyncSession):
 
     expected = {
         "shortName","userName","alias","tpPostingID","tpUserUID","tpDdeskUID",
-        "legalEntity","legalEntityshortName","role","uuid","firmId"
+        "legalEntity","legalEntityShortName","role","uuid","firmId"
     }
     missing = expected - set(df.columns)
     if missing:
