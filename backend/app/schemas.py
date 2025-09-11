@@ -37,7 +37,15 @@ class OrderCreate(BaseModel):
     linkedOrderID: Optional[str] = None
     refInstrument: Optional[str] = None
     refPrice: Optional[float] = None
-
+    b_client: Optional[str] = None
+    o_client: Optional[str] = None
+    bids: Optional[str] = None
+    indicatives: Optional[str] = None
+    offers: Optional[str] = None
+    pub_bid: Optional[str] = None
+    pub_offer: Optional[str] = None
+    alias: Optional[str] = None
+    legalEntitiShortName: Optional[str] = None
     response: Optional[str] = None
     timestamp: Optional[datetime] = None
 
@@ -76,7 +84,15 @@ class OrderUpdate(BaseModel):
     linkedOrderID: Optional[str] = None
     refInstrument: Optional[str] = None
     refPrice: Optional[float] = None
-
+    b_client: Optional[str] = None
+    o_client: Optional[str] = None
+    bids: Optional[str] = None
+    indicatives: Optional[str] = None
+    offers: Optional[str] = None
+    pub_bid: Optional[str] = None
+    pub_offer: Optional[str] = None
+    alias: Optional[str] = None
+    legalEntitiShortName: Optional[str] = None
     response: Optional[str] = None
     timestamp: Optional[datetime] = None
 

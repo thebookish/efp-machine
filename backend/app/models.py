@@ -65,6 +65,15 @@ class Order(Base):
     refPrice = Column(Float, nullable=True)
 
     # Additional fields
+    b_client= Column(Text, nullable=True)
+    o_client= Column(Text, nullable=True)
+    bids= Column(Text, nullable=True)
+    indicatives= Column(Text, nullable=True)
+    offers= Column(Text, nullable=True)
+    pub_bid= Column(Text, nullable=True)
+    pub_offer= Column(Text, nullable=True)
+    alias= Column(Text, nullable=True)
+    legalEntitiShortName= Column(Text, nullable=True)
     response = Column(Text, nullable=True)
     timestamp = Column(DateTime(timezone=True), nullable=True)
 class EfpRun(Base):
