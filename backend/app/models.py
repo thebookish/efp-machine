@@ -28,10 +28,11 @@ class Order(Base):
     __tablename__ = "orders"
 
     id = Column(String, primary_key=True, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    # --- Exact CSV fields ---
+    # CSV fields (all nullable, since sometimes missing)
     content_event_eventId = Column(String, nullable=True)
-    content_event_messages_0_message = Column(Text, nullable=False)
+    content_event_messages_0_message = Column(Text, nullable=True)
     content_event_messages_0_timestamp = Column(String, nullable=True)
     content_event_messages_0_sender_uuid = Column(String, nullable=True)
     requester_uuid = Column(String, nullable=True)
@@ -46,7 +47,7 @@ class Order(Base):
     underlyingIndexISIN = Column(String, nullable=True)
     currency = Column(String, nullable=True)
     strategyID = Column(String, nullable=True)
-    strategyDescription = Column(String, nullable=True)
+    strategyDescription = Column(Text, nullable=True)
     tradeableId = Column(String, nullable=True)
     contractId = Column(String, nullable=True)
     contractName = Column(String, nullable=True)
@@ -63,11 +64,9 @@ class Order(Base):
     refInstrument = Column(String, nullable=True)
     refPrice = Column(Float, nullable=True)
 
-    # --- Extra fields ---
+    # Additional fields
     response = Column(Text, nullable=True)
     timestamp = Column(DateTime(timezone=True), nullable=True)
-
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
 class EfpRun(Base):
     __tablename__ = 'efp_run'
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
