@@ -62,7 +62,7 @@ class OrderCreate(BaseModel):
     pub_bid: Optional[str] = None
     pub_offer: Optional[str] = None
     alias: Optional[str] = None
-    legalEntitiShortName: Optional[str] = None
+    legalEntityShortName: Optional[str] = None
     response: Optional[str] = None
     timestamp: Optional[datetime] = None
 
@@ -109,7 +109,7 @@ class OrderUpdate(BaseModel):
     pub_bid: Optional[str] = None
     pub_offer: Optional[str] = None
     alias: Optional[str] = None
-    legalEntitiShortName: Optional[str] = None
+    legalEntityShortName: Optional[str] = None
     response: Optional[str] = None
     timestamp: Optional[datetime] = None
 
