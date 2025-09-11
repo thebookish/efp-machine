@@ -274,7 +274,49 @@ async def orders_ws(ws: WebSocket, db: AsyncSession = Depends(get_db)):
         except Exception:
             pass
 
+# --- Normalizer for CSV records ---
+def normalize_record(rec: dict) -> dict:
+    """Ensure all required fields have correct types (esp. str)."""
+    str_fields = {
+        "content_event_eventId",
+        "content_event_messages_0_message",
+        "content_event_messages_0_timestamp",
+        "content_event_messages_0_sender_uuid",
+        "requester_uuid",
+        "eurexContractCode",
+        "contractISIN",
+        "primaryAssetClass",
+        "baseProduct",
+        "subProduct",
+        "eurexProductISIN",
+        "underlyingIndex",
+        "underlyingIndexISIN",
+        "currency",
+        "strategyID",
+        "strategyDescription",
+        "tradeableId",
+        "contractId",
+        "contractName",
+        "strategyID_1",
+        "strategyDisplayName",
+        "strategyBrandName",
+        "orderType",
+        "orderID",
+        "state",
+        "buySell",
+        "linkedOrderID",
+        "refInstrument",
+    }
 
+    fixed = {}
+    for k, v in rec.items():
+        if v is None or (isinstance(v, float) and pd.isna(v)):
+            fixed[k] = None
+        elif k in str_fields:
+            fixed[k] = str(v)  # force cast to string
+        else:
+            fixed[k] = v
+    return fixed
 # --- Upload CSV ---
 @router.post("/upload")
 async def upload_csv_file(file: UploadFile = File(...)):
@@ -295,7 +337,8 @@ async def upload_csv_file(file: UploadFile = File(...)):
     inserted = 0
     for rec in records:
         try:
-            order = OrderCreate(**rec)   # matches schema now
+            normalized = normalize_record(rec)
+            order = OrderCreate(**normalized)
             await enqueue_order(order)
             inserted += 1
         except Exception as e:
