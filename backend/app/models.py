@@ -24,6 +24,24 @@ Base = declarative_base()
 #     response = Column(Text, nullable=True)       # empty by default
 #     timestamp = Column(DateTime(timezone=True), nullable=True)
 #     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class User(Base):
+    __tablename__ = "users"
+
+    # From your “fixed user table”
+    uuid = Column(String, primary_key=True, index=True)          # e.g. "159890"
+    shortName = Column(String, nullable=True)                    # PhilippeLaget
+    userName = Column(String, nullable=True)                     # "Philippe Laget"
+    alias = Column(String, nullable=True)                        # "PL"
+    tpPostingID = Column(String, nullable=True)
+    tpUserUID = Column(String, nullable=True)
+    tpDdeskUID = Column(String, nullable=True)
+    legalEntity = Column(String, nullable=True)                  # "Merrill Lynch International"
+    legalEntityshortName = Column(String, nullable=True)         # "ML"
+    role = Column(String, nullable=True)                         # Trader / Broker
+    firmId = Column(String, nullable=True)                       # "9001"
+
+
 class Order(Base):
     __tablename__ = "orders"
 
@@ -72,8 +90,9 @@ class Order(Base):
     offers= Column(Text, nullable=True)
     pub_bid= Column(Text, nullable=True)
     pub_offer= Column(Text, nullable=True)
-    alias= Column(Text, nullable=True)
-    legalEntitiShortName= Column(Text, nullable=True)
+    # NEW: enrichment from users by UUID
+    alias = Column(String, nullable=True)
+    legalEntityshortName = Column(String, nullable=True)
     response = Column(Text, nullable=True)
     timestamp = Column(DateTime(timezone=True), nullable=True)
 class EfpRun(Base):

@@ -3,6 +3,23 @@ from pydantic import BaseModel,Field
 from datetime import datetime
 from typing import Optional
 
+# -------- Users --------
+class UserCreate(BaseModel):
+    uuid: str
+    shortName: Optional[str] = None
+    userName: Optional[str] = None
+    alias: Optional[str] = None
+    tpPostingID: Optional[str] = None
+    tpUserUID: Optional[str] = None
+    tpDdeskUID: Optional[str] = None
+    legalEntity: Optional[str] = None
+    legalEntityshortName: Optional[str] = None
+    role: Optional[str] = None
+    firmId: Optional[str] = None
+
+
+class UserResponse(UserCreate):
+    created_at: datetime
 
 class OrderCreate(BaseModel):
     content_event_eventId: Optional[str] = None

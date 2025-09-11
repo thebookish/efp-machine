@@ -1,0 +1,13 @@
+shortName,userName,alias,tpPostingID,tpUserUID,tpDdeskUID,legalEntity,legalEntityshortName,role,uuid,firmId
+PhilippeLaget,Philippe Laget,PL,159890,P2Mx,M013,Merrill Lynch International,ML,Trader,159890,9001
+FrancBarrabes,Franc Barrabes,FB,156440,P2xI,M007,BNP Paribas Financial Markets,BNP,Trader,156440,9002
+TesseraHughes,Tessera Hughes,TH,160905,P2Nl,M00e,UBS AG,UBS,Trader,160905,9003
+LucindaMills,Lucinda Mills,LM,150359,P1vx,M09t,Goldman Sachs International,GS,Trader,150359,9004
+CharlesBarton,Charles Barton,CB,127577,P17t,M0Dr,Jane Street Financial Ltd,JS,Trader,127577,9005
+VincentMartlet,Vincent Martlet,VM,134511,P1qY,M00a,Societe Generale,SG,Trader,134511,9006
+PeterHoldway,Peter Holdway,PH,184804,P32Z,M0KE,Barclays Capital Securities Ltd,BAR,Trader,184804,9007
+BenjaminBikard,Benjamin Bikard,BB,146793,P0GE,M02Z,TP ICAP Link,LINK,Broker,146793,9008
+DavidThiar,David Thiar,DT,145502,P1Bi,M02Z,TP ICAP Link,LINK,Broker,145502,9008
+DeanPearlman,Dean Pearlman,DP,210286,P0GD,M02Z,TP ICAP Link,LINK,Broker,210286,9008
+ChloeRosoFSN,Chloe Roso,CR,145503,P0GG,M02Z,TP ICAP Link,LINK,Broker,145503,9008
+SebastienGaziello,Sebastien Gaziello,SG,146794,P0GC,M02Z,TP ICAP Link,LINK,Broker,146794,9008

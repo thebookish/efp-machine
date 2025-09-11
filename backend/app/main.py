@@ -1,6 +1,7 @@
 # backend/app/main.py
 from app.services.efp_run import fetch_daily_efp_run
 from app.services.order_ingest import order_worker
+from app.services.user_loader import load_users_from_csv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
@@ -47,4 +48,11 @@ async def startup_event():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     # Auto-generate daily EFP run if DB empty
+        # Load users.csv into DB
+    async with AsyncSessionLocal() as session:
+        await load_users_from_csv(session)
+
+    # Start order worker
+    asyncio.create_task(order_worker(AsyncSessionLocal))
     await fetch_daily_efp_run()
+
