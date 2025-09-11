@@ -116,9 +116,9 @@ async def order_worker(session_factory, batch_size=500, flush_interval=0.5):
                 order_dict = await enrich_order_with_user(session, order_dict)
                 dicts.append(order_dict)
 
-            # Bulk insert
-            async with session.begin():
-                await session.execute(insert(Order), dicts)
+   # ✅ Only commit once here, no nested begin()
+            await session.execute(insert(Order), dicts)
+            await session.commit()
 
         # Mark tasks done
         for _ in batch:
