@@ -276,27 +276,33 @@ async def orders_ws(ws: WebSocket, db: AsyncSession = Depends(get_db)):
 
 
 # --- Upload CSV ---
-@router.post("/upload")
-async def upload_csv(file: UploadFile = File(...)):
+@router.post("/upload_csv")
+async def upload_csv_file(file: UploadFile = File(...)):
     if not file.filename.endswith(".csv"):
-        raise HTTPException(status_code=400, detail="Only .csv files are allowed")
-
+        raise HTTPException(status_code=400, detail="Only .csv files allowed")
     try:
         df = pd.read_csv(file.file)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to read CSV: {e}")
 
+        # normalize headers
+        df.columns = [c.replace(".", "_") for c in df.columns]
+        df = df.where(pd.notnull(df), None)
+
+        records = df.to_dict(orient="records")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to parse CSV: {e}")
+
+    from app.services.order_ingest import enqueue_order
     inserted = 0
-    for _, row in df.iterrows():
-        data = row.to_dict()
+    for rec in records:
         try:
-            order = OrderCreate(**data)
+            order = OrderCreate(**rec)   # matches schema now
             await enqueue_order(order)
             inserted += 1
         except Exception as e:
-            print(f"⚠️ Skipping row due to validation error: {e}")
+            print(f"⚠️ Skipping row: {e}")
 
     return {"queued": inserted, "status": "accepted"}
+
 
 
 # --- List orders ---
