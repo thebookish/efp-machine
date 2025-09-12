@@ -11,7 +11,7 @@ const UploadJson = () => {
     formData.append("file", file);
 
     try {
-      const resp = await axios.post("https://efp-machine-2.onrender.com/api/orders/upload", formData, {
+      const resp = await axios.post("http://localhost:8000/api/orders/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setMessage(`Inserted: ${resp.data.inserted}`);
