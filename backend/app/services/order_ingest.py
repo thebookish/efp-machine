@@ -30,6 +30,10 @@ async def enrich_order_with_user(session: AsyncSession, order_dict: dict) -> dic
     if user:
         order_dict["alias"] = user.alias
         order_dict["legalEntityShortName"] = user.legalEntityShortName
+        order_dict["tpUserUidTrader"] = user.tpUserUID
+        order_dict["tpPostingIdRequester"] = user.tpPostingID
+        order_dict["uuidRequester"] = user.uuid
+     
 
         # Business rules
         if order_dict.get("buySell") == "Buy":
