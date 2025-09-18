@@ -101,7 +101,7 @@ async def order_worker(session_factory, batch_size=500, flush_interval=0.5):
                     "state": item.state,
                     "buySell": item.buySell,
                     "price": item.price,
-                    "basis": '3.75',
+                    "basis": 3.75,
                     "linkedOrderID": item.linkedOrderID,
                     "refInstrument": item.refInstrument,
                     "refPrice": item.refPrice,

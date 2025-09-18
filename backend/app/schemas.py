@@ -56,9 +56,9 @@ class OrderCreate(BaseModel):
     refPrice: Optional[float] = None
     b_client: Optional[str] = None
     o_client: Optional[str] = None
-    bids: Optional[str] = None
+    bids: Optional[float] = None
     # indicatives: Optional[str] = None
-    offers: Optional[str] = None
+    offers: Optional[float] = None
     pub_bid: Optional[str] = None
     pub_offer: Optional[str] = None
     alias: Optional[str] = None
@@ -106,9 +106,9 @@ class OrderUpdate(BaseModel):
     refPrice: Optional[float] = None
     b_client: Optional[str] = None
     o_client: Optional[str] = None
-    bids: Optional[str] = None
+    bids: Optional[float] = None
     # indicatives: Optional[str] = None
-    offers: Optional[str] = None
+    offers: Optional[float] = None
     pub_bid: Optional[str] = None
     pub_offer: Optional[str] = None
     alias: Optional[str] = None
