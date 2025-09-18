@@ -1,5 +1,5 @@
 from sqlalchemy.orm import declarative_base, Mapped, mapped_column
-from sqlalchemy import String, Float, Integer, DateTime, Text,Column, CheckConstraint
+from sqlalchemy import String, Float, Integer, DateTime, Text,Column,Numeric, CheckConstraint
 from datetime import datetime
 from sqlalchemy.sql import func
 
@@ -85,9 +85,8 @@ class Order(Base):
     # Additional fields
     b_client= Column(Text, nullable=True)
     o_client= Column(Text, nullable=True)
-    bids= Column(Float, nullable=True)
-    # indicatives= Column(Text, nullable=True)
-    offers= Column(Float, nullable=True)
+    bids   = Column(Numeric(14, 6), nullable=True)
+    offers = Column(Numeric(14, 6), nullable=True)
     pub_bid= Column(Text, nullable=True)
     pub_offer= Column(Text, nullable=True)
     # NEW: enrichment from users by UUID
