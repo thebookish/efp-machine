@@ -13,7 +13,7 @@ export default function ChatPanel() {
     setLog((l) => [...l, { role: "user", text: user }]);
 
     try {
-      const resp = await askAI(user, sessionId || undefined);
+      const resp = await askAI(user);
 
       // save sessionId if backend generated one
       if (resp.session_id && !sessionId) {

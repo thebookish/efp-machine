@@ -83,12 +83,12 @@ class Order(Base):
     refPrice = Column(Float, nullable=True)
 
     # Additional fields
-    b_client= Column(Text, nullable=True)
-    o_client= Column(Text, nullable=True)
-    bids   = Column(Numeric(14, 6), nullable=True)
-    offers = Column(Numeric(14, 6), nullable=True)
-    pub_bid= Column(Text, nullable=True)
-    pub_offer= Column(Text, nullable=True)
+    # b_client= Column(Text, nullable=True)
+    # o_client= Column(Text, nullable=True)
+    # bids   = Column(Numeric(14, 6), nullable=True)
+    # offers = Column(Numeric(14, 6), nullable=True)
+    # pub_bid= Column(Text, nullable=True)
+    # pub_offer= Column(Text, nullable=True)
     # NEW: enrichment from users by UUID
     alias = Column(String, nullable=True)
     legalEntityShortName = Column(String, nullable=True)

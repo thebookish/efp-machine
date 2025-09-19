@@ -25,7 +25,7 @@ export default function Orders() {
   const [editData, setEditData] = useState<Partial<Order>>({});
 
   useEffect(() => {
-    const ws = new WebSocket("wss://efp-machine-2.onrender.com/api/orders/ws");
+    const ws = new WebSocket("wss://localhost:8000/api/orders/ws");
 
     ws.onmessage = (event) => {
       const msg = JSON.parse(event.data);

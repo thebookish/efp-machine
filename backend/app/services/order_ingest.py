@@ -35,17 +35,17 @@ async def enrich_order_with_user(session: AsyncSession, order_dict: dict) -> dic
         order_dict["uuidRequester"] = user.uuid
      
 
-        # Business rules
-        if order_dict.get("buySell") == "Buy":
-            order_dict["b_client"] = user.legalEntityShortName
-            order_dict["o_client"] = None
-            order_dict["bids"] = order_dict.get("price")
-            order_dict["offers"] = None
-        elif order_dict.get("buySell") == "Sell":
-            order_dict["b_client"] = None
-            order_dict["o_client"] = user.legalEntityShortName
-            order_dict["bids"] = None
-            order_dict["offers"] = order_dict.get("price")
+        # # Business rules
+        # if order_dict.get("buySell") == "Buy":
+        #     order_dict["b_client"] = user.legalEntityShortName
+        #     order_dict["o_client"] = None
+        #     order_dict["bids"] = order_dict.get("price")
+        #     order_dict["offers"] = None
+        # elif order_dict.get("buySell") == "Sell":
+        #     order_dict["b_client"] = None
+        #     order_dict["o_client"] = user.legalEntityShortName
+        #     order_dict["bids"] = None
+        #     order_dict["offers"] = order_dict.get("price")
 
     return order_dict
 
@@ -113,10 +113,10 @@ async def order_worker(session_factory, batch_size=500, flush_interval=0.5):
                     "tpUserUidTrader": None,
                     "tpPostingIdRequester": None,
                     "uuidRequester": None,
-                    "b_client": None,
-                    "o_client": None,
-                    "bids": None,
-                    "offers": None,
+                    # "b_client": None,
+                    # "o_client": None,
+                    # "bids": None,
+                    # "offers": None,
                 }
   
                 # ✅ enrich with user info + buyer/seller fields
