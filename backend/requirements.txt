@@ -20,3 +20,4 @@ gunicorn
 greenlet
 yfinance
 python-multipart
+httpx

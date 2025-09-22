@@ -22,31 +22,16 @@ class UserResponse(UserCreate):
     created_at: datetime
 
 class OrderCreate(BaseModel):
-    content_event_eventId: Optional[str] = None
-    content_event_messages_0_message: Optional[str] = None
-    content_event_messages_0_timestamp: Optional[str] = None
-    content_event_messages_0_sender_uuid: Optional[str] = None
+    eventId: Optional[str] = None
+    message: Optional[str] = None
+    timestamp: Optional[str] = None
+    sender_uuid: Optional[str] = None
     requester_uuid: Optional[str] = None
-    # eurexContractCode: Optional[str] = None
     expiryDate: Optional[str] = None
-    # contractISIN: Optional[str] = None
-    # primaryAssetClass: Optional[str] = None
-    # baseProduct: Optional[str] = None
-    # subProduct: Optional[str] = None
-    # eurexProductISIN: Optional[str] = None
-    # underlyingIndex: Optional[str] = None
-    # underlyingIndexISIN: Optional[str] = None
-    # currency: Optional[str] = None
     strategyID: Optional[str] = None
-    # strategyDescription: Optional[str] = None
-    # tradeable_Id: Optional[str] = None
     contractId: Optional[str] = None
-    # contractName: Optional[str] = None
-    # strategyID_1: Optional[str] = None
-    # strategyDisplayName: Optional[str] = None
-    # strategyBrandName: Optional[str] = None
     orderType: Optional[str] = None
-    orderID: Optional[str] = None
+    # orderID: Optional[str] = None
     state: Optional[str] = None
     buySell: Optional[str] = None
     price: Optional[float] = None
@@ -54,13 +39,6 @@ class OrderCreate(BaseModel):
     linkedOrderID: Optional[str] = None
     refInstrument: Optional[str] = None
     refPrice: Optional[float] = None
-    # b_client: Optional[str] = None
-    # o_client: Optional[str] = None
-    # bids: Optional[float] = None
-    # indicatives: Optional[str] = None
-    # offers: Optional[float] = None
-    # pub_bid: Optional[str] = None
-    # pub_offer: Optional[str] = None
     alias: Optional[str] = None
     legalEntityShortName: Optional[str] = None
     tpUserUidTrader: Optional[str] = None
@@ -72,29 +50,14 @@ class OrderCreate(BaseModel):
 
 class OrderUpdate(BaseModel):
     # All fields optional for editing
-    content_event_eventId: Optional[str] = None
-    content_event_messages_0_message: Optional[str] = None
-    content_event_messages_0_timestamp: Optional[str] = None
-    content_event_messages_0_sender_uuid: Optional[str] = None
+    eventId: Optional[str] = None
+    message: Optional[str] = None
+    timestamp: Optional[str] = None
+    sender_uuid: Optional[str] = None
     requester_uuid: Optional[str] = None
-    # eurexContractCode: Optional[str] = None
     expiryDate: Optional[str] = None
-    # contractISIN: Optional[str] = None
-    # primaryAssetClass: Optional[str] = None
-    # baseProduct: Optional[str] = None
-    # subProduct: Optional[str] = None
-    # eurexProductISIN: Optional[str] = None
-    # underlyingIndex: Optional[str] = None
-    # underlyingIndexISIN: Optional[str] = None
-    # currency: Optional[str] = None
     strategyID: Optional[str] = None
-    # strategyDescription: Optional[str] = None
-    # tradeableId: Optional[str] = None
     contractId: Optional[str] = None
-    # contractName: Optional[str] = None
-    # strategyID_1: Optional[str] = None
-    # strategyDisplayName: Optional[str] = None
-    # strategyBrandName: Optional[str] = None
     orderType: Optional[str] = None
     orderID: Optional[str] = None
     state: Optional[str] = None
@@ -104,13 +67,6 @@ class OrderUpdate(BaseModel):
     linkedOrderID: Optional[str] = None
     refInstrument: Optional[str] = None
     refPrice: Optional[float] = None
-    # b_client: Optional[str] = None
-    # o_client: Optional[str] = None
-    # bids: Optional[float] = None
-    # indicatives: Optional[str] = None
-    # offers: Optional[float] = None
-    # pub_bid: Optional[str] = None
-    # pub_offer: Optional[str] = None
     alias: Optional[str] = None
     legalEntityShortName: Optional[str] = None
     tpUserUidTrader: Optional[str] = None

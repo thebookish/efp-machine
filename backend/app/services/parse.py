@@ -1,79 +1,65 @@
 import json
 import re
-import uuid
 from typing import Optional
 from openai import OpenAI
-
 from app.schemas import OrderCreate
 from app.config import settings
 
-# OpenAI client
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
+regex_patterns = [
+    re.compile(
+        r"(?P<contractId>[A-Z0-9]+)\s+(?P<expiryDate>[A-Z0-9]+)\s+TRF\s+"
+        r"(?P<price>[0-9.]+)\s+.*?(?P<buySell>buy|sell)\s+.*?(?P<basis>[0-9.]+)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"we can\s+(?P<buySell>buy|sell)\s+[0-9.]*\s*"
+        r"(?P<contractId>[A-Z0-9]+)\s+(?P<expiryDate>[A-Z0-9]+)\s+TRF\s+"
+        r"(?:at\s+)?(?P<price>[0-9.]+)\s+vs\s+(?P<basis>[0-9.]+)",
+        re.IGNORECASE,
+    ),
+]
 
-def parse_bbg_message(event: dict) -> Optional[OrderCreate]:
+
+def parse_single_message(event: dict, msg_obj: dict) -> Optional[OrderCreate]:
     """
-    Parse Bloomberg-style message into OrderCreate schema.
-
-    Example message formats:
-      "SX5E DEC25 TRF 61 we can sell vs 3.75"
-      "We can buy 1 SX5E DEC25 TRF at 62 vs 3.80"
-
-    Output fields:
-      message, orderType, buySell, quantity, price, basis,
-      strategyDisplayName, contractId, expiryDate
+    Parse a single message inside an event into an OrderCreate object.
     """
-
-    # Extract raw message from event (works for both flat + nested JSONs)
-    msg = event.get("message")
-    if not msg and "messages" in event and event["messages"]:
-        msg = event["messages"][0].get("message")
-
-    if not msg:
+    msg_text = msg_obj.get("message")
+    if not msg_text:
         return None
+    msg_text = msg_text.strip()
 
-    msg = msg.strip()
+    # Metadata
+    event_id = str(event.get("eventId")) if event.get("eventId") else None
+    ts = msg_obj.get("timestamp")
+    sender_uuid = str(msg_obj.get("sender", {}).get("uuid")) if msg_obj.get("sender") else None
 
-    # --- 1. Regex parsing ---
-    regex_patterns = [
-        # Format: SYMBOL EXPIRY TRF PRICE we can buy/sell vs BASIS
-        re.compile(
-            r"(?P<contractId>[A-Z0-9]+)\s+(?P<expiryDate>[A-Z0-9]+)\s+TRF\s+"
-            r"(?P<price>[0-9.]+)\s+.*?(?P<buySell>buy|sell)\s+.*?(?P<basis>[0-9.]+)",
-            re.IGNORECASE,
-        ),
-        # Format: we can buy 1 SYMBOL EXPIRY TRF at PRICE vs BASIS
-        re.compile(
-            r"we can\s+(?P<buySell>buy|sell)\s+[0-9.]*\s*"
-            r"(?P<contractId>[A-Z0-9]+)\s+(?P<expiryDate>[A-Z0-9]+)\s+TRF\s+"
-            r"(?:at\s+)?(?P<price>[0-9.]+)\s+vs\s+(?P<basis>[0-9.]+)",
-            re.IGNORECASE,
-        ),
-    ]
-
+    # Regex parsing
     for pattern in regex_patterns:
-        match = pattern.search(msg)
+        match = pattern.search(msg_text)
         if match:
             return OrderCreate(
-                message=msg,
+                eventId=event_id,
+                message=msg_text,
+                timestamp=ts,
+                sender_uuid=sender_uuid,
+                requester_uuid=None,
                 orderType="SINGLE",
+                state="ACTIVE",
                 buySell=match.group("buySell").upper(),
-                quantity=1.0,  # default
                 price=float(match.group("price")),
                 basis=float(match.group("basis")),
-                strategyDisplayName="TRF",
                 contractId=match.group("contractId").upper(),
                 expiryDate=match.group("expiryDate").upper(),
-                response=None,
-                timestamp=None,
-
             )
 
-    # --- 2. AI fallback parsing ---
+    # AI fallback
     prompt = f"""
     Extract structured trade info from the following message:
 
-    Message: "{msg}"
+    Message: "{msg_text}"
 
     Return a JSON object with fields:
     - contractId (string, e.g., SX5E)
@@ -82,7 +68,6 @@ def parse_bbg_message(event: dict) -> Optional[OrderCreate]:
     - price (float, TRF spread, e.g., 61)
     - basis (float, vs value, e.g., 3.75)
     """
-
     try:
         resp = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -92,23 +77,22 @@ def parse_bbg_message(event: dict) -> Optional[OrderCreate]:
             ],
             response_format={"type": "json_object"},
         )
-
         parsed = json.loads(resp.choices[0].message.content)
 
         return OrderCreate(
-            message=msg,
-            orderType="SINGLE",
+            eventId=event_id,
+            message=msg_text,
+            timestamp=ts,
+            sender_uuid=sender_uuid,
+            requester_uuid=None,
+            orderType="price run",
+            state="ACTIVE",
             buySell=parsed["buySell"].upper(),
-            quantity=1.0,
             price=float(parsed["price"]),
             basis=float(parsed["basis"]),
-            strategyDisplayName="TRF",
             contractId=parsed["contractId"].upper(),
             expiryDate=parsed["expiryDate"].upper(),
-            response=None,
-            timestamp=None,
-
         )
     except Exception as e:
-        print(f"⚠️ AI parsing failed for message='{msg}': {e}")
+        print(f"⚠️ AI parsing failed for message='{msg_text}': {e}")
         return None
