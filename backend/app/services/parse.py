@@ -23,6 +23,7 @@ regex_patterns = [
 
 
 def parse_single_message(event: dict, msg_obj: dict) -> Optional[OrderCreate]:
+    print(f"📥 parsing order:")
     """
     Parse a single message inside an event into an OrderCreate object.
     """
@@ -43,10 +44,10 @@ def parse_single_message(event: dict, msg_obj: dict) -> Optional[OrderCreate]:
             return OrderCreate(
                 eventId=event_id,
                 message=msg_text,
-                timestamp=ts,
+                message_timestamp=ts,
                 sender_uuid=sender_uuid,
                 requester_uuid=None,
-                orderType="SINGLE",
+                orderType="price run",
                 state="ACTIVE",
                 buySell=match.group("buySell").upper(),
                 price=float(match.group("price")),
@@ -82,7 +83,7 @@ def parse_single_message(event: dict, msg_obj: dict) -> Optional[OrderCreate]:
         return OrderCreate(
             eventId=event_id,
             message=msg_text,
-            timestamp=ts,
+            message_timestamp=ts,
             sender_uuid=sender_uuid,
             requester_uuid=None,
             orderType="price run",

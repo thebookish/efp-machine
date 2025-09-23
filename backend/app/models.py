@@ -51,7 +51,7 @@ class Order(Base):
     # CSV fields (all nullable, since sometimes missing)
     eventId = Column(String, nullable=True)
     message = Column(Text, nullable=True)
-    timestamp = Column(String, nullable=True)
+    message_timestamp = Column(String, nullable=True)
     sender_uuid = Column(String, nullable=True)
     requester_uuid = Column(String, nullable=True)
     expiryDate = Column(String, nullable=True)

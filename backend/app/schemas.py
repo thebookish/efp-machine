@@ -24,7 +24,7 @@ class UserResponse(UserCreate):
 class OrderCreate(BaseModel):
     eventId: Optional[str] = None
     message: Optional[str] = None
-    timestamp: Optional[str] = None
+    message_timestamp: Optional[str] = None
     sender_uuid: Optional[str] = None
     requester_uuid: Optional[str] = None
     expiryDate: Optional[str] = None
@@ -52,14 +52,14 @@ class OrderUpdate(BaseModel):
     # All fields optional for editing
     eventId: Optional[str] = None
     message: Optional[str] = None
-    timestamp: Optional[str] = None
+    message_timestamp: Optional[str] = None
     sender_uuid: Optional[str] = None
     requester_uuid: Optional[str] = None
     expiryDate: Optional[str] = None
     strategyID: Optional[str] = None
     contractId: Optional[str] = None
     orderType: Optional[str] = None
-    orderID: Optional[str] = None
+    # orderID: Optional[str] = None
     state: Optional[str] = None
     buySell: Optional[str] = None
     price: Optional[float] = None
@@ -77,7 +77,7 @@ class OrderUpdate(BaseModel):
 
 
 class OrderResponse(OrderCreate):
-    id: str
+    orderId: str
     created_at: datetime
 
     class Config:

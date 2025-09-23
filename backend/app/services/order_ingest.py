@@ -9,6 +9,7 @@ ORDER_QUEUE = asyncio.Queue(maxsize=10000)  # prevents memory runaway
 
 
 async def enqueue_order(order: OrderCreate):
+    print(f"📥 Enqueued order: {order.message}")
     """Put a parsed order into queue."""
     await ORDER_QUEUE.put(order)
 
@@ -62,7 +63,7 @@ async def order_worker(session_factory, batch_size=500, flush_interval=0.5):
                     "orderId": str(uuid.uuid4()),
                     "eventId": item.eventId,
                     "message": item.message,
-                    "timestamp": item.timestamp,
+                    # "timestamp": item.timestamp,
                     "sender_uuid": str(item.sender_uuid) if item.sender_uuid else None,
                     "requester_uuid": str(item.requester_uuid) if item.requester_uuid else None,
                     "expiryDate": item.expiryDate,
@@ -78,7 +79,7 @@ async def order_worker(session_factory, batch_size=500, flush_interval=0.5):
                     "refInstrument": item.refInstrument,
                     "refPrice": item.refPrice,
                     "response": item.response,
-                    "timestamp": item.timestamp,
+                    "message_timestamp": item.timestamp,
                     # placeholders for enrichment
                     "alias": None,
                     "legalEntityShortName": None,

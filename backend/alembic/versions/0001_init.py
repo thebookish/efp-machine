@@ -32,7 +32,7 @@ def upgrade():
         sa.Column('created_at', sa.DateTime, server_default=sa.text('CURRENT_TIMESTAMP')),
         sa.Column('eventId', sa.String, nullable=True),
         sa.Column('message', sa.Text, nullable=True),
-        sa.Column('timestamp', sa.String, nullable=True),
+        sa.Column('message_timestamp', sa.String, nullable=True),
         sa.Column('sender_uuid', sa.String, nullable=True),
         sa.Column('requester_uuid', sa.String, nullable=True),
         sa.Column('expiryDate', sa.String, nullable=True),

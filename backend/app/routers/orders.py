@@ -174,16 +174,19 @@
 #     await db.refresh(order)
 #     await _push_full_list(db)
 #     return order
+from fastapi import HTTPException
+from app.services.fetch_messages import fetch_and_process_messages
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import asyncio, httpx
-
-from app.deps import get_db, async_session
+import json
+from app.deps import get_db, AsyncSessionLocal
 from app.models import Order
-from app.schemas import OrderResponse
+from app.schemas import OrderResponse, OrderUpdate
 from app.services.order_ingest import enqueue_order
 from app.services.parse import parse_single_message
+from app.services.simple_parser import simple_parse_message
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 
@@ -256,41 +259,53 @@ async def orders_ws(ws: WebSocket, db: AsyncSession = Depends(get_db)):
             pass
 
 
-async def poll_external_api():
-    url = "https://bgg-tester.onrender.com/messages"
-    last_seen_id: int | None = None
 
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        while True:
-            try:
-                resp = await client.get(url)
-                resp.raise_for_status()
-                events = resp.json()
-
-                if isinstance(events, list):
-                    new_events = []
-                    for ev in events:
-                        ev_id = ev.get("eventId")
-                        if last_seen_id is None or (ev_id and ev_id > last_seen_id):
-                            new_events.append(ev)
-
-                    if new_events:
-                        last_seen_id = max(ev.get("eventId") for ev in new_events if ev.get("eventId"))
-                        for ev in new_events:
-                            for msg_obj in ev.get("messages", []):
-                                parsed = parse_single_message(ev, msg_obj)
-                                if parsed:
-                                    await enqueue_order(parsed)
-
-                        async with async_session() as db:
-                            await _push_full_list(db)
-
-            except Exception as e:
-                print(f"⚠️ Polling error: {e}")
-
-            await asyncio.sleep(5)
+@router.post("/fetch")
+async def fetch_orders_from_api(db: AsyncSession = Depends(get_db)):
+    """
+    Fetch new messages from external API, parse, and enqueue into DB.
+    """
+    try:
+        result = await fetch_and_process_messages()
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed fetching messages: {e}")
+    
+# --- List orders ---
+@router.get("/list", response_model=list[OrderResponse])
+async def list_orders(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Order).order_by(Order.created_at.desc()))
+    return result.scalars().all()
 
 
-@router.on_event("startup")
-async def start_background_tasks():
-    asyncio.create_task(poll_external_api())
+# --- Edit order ---
+@router.put("/edit/{order_id}", response_model=OrderResponse)
+async def edit_order(order_id: str, updates: OrderUpdate, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Order).where(Order.orderId == order_id))
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    update_data = updates.model_dump(exclude_unset=True)
+
+    # ✅ If response is being updated, parse it and auto-update fields
+    if "response" in update_data and update_data["response"]:
+      
+
+        parsed = simple_parse_message(update_data["response"])
+        if parsed:
+            order.contractId = parsed["contractId"]
+            order.expiryDate = parsed["expiryDate"]
+            order.buySell = parsed["buySell"]
+            order.price = parsed["price"]
+            order.basis = parsed["basis"]
+
+    # ✅ Apply other updates
+    for field, value in update_data.items():
+        setattr(order, field, value)
+
+    await db.commit()
+    await db.refresh(order)
+    await _push_full_list(db)
+    return order
+
