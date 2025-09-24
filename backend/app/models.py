@@ -7,23 +7,31 @@ Base = declarative_base()
 
 
 
+class Instrument(Base):
+    __tablename__ = "instruments"
 
-# class Order(Base):
-#     __tablename__ = "orders"
+    id = Column(Integer, primary_key=True, autoincrement=True)
 
-#     id = Column(String, primary_key=True, index=True)
-#     message = Column(String, nullable=False)
-#     orderType = Column(String, nullable=False)
-#     buySell = Column(String, nullable=False)
-#     quantity = Column(Float, nullable=False)
-#     price = Column(Float, nullable=False)
-#     basis = Column(Float, nullable=False)
-#     strategyDisplayName = Column(String, nullable=False)
-#     contractId = Column(String, nullable=False)
-#     expiryDate = Column(String, nullable=False)
-#     response = Column(Text, nullable=True)       # empty by default
-#     timestamp = Column(DateTime(timezone=True), nullable=True)
-#     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    eurexcontractcode = Column(String, nullable=True)
+    expirydate = Column(String, nullable=True)            # e.g. "DEC26"
+    contractisin = Column(String, nullable=True)
+    primaryassetclass = Column(String, nullable=True)
+    baseproduct = Column(String, nullable=True)
+    subproduct = Column(String, nullable=True)
+    eurexproductisin = Column(String, nullable=True)
+    underlyingindex = Column(String, nullable=True)
+    underlyingindexisin = Column(String, nullable=True)
+    currency = Column(String, nullable=True)
+    strategyid = Column(String, nullable=True)
+    strategydescription = Column(String, nullable=True)
+    tradeableid = Column(String, nullable=True)
+    contractid = Column(String, nullable=True)            # e.g. "SX5E"
+    contractname = Column(String, nullable=True)
+    strategyid2 = Column(String, nullable=True)
+    strategydisplayname = Column(String, nullable=True)
+    strategybrandname = Column(String, nullable=True)
+    refinstrument = Column(String, nullable=True)
+    refprice = Column(Float, nullable=True)
 
 class User(Base):
     __tablename__ = "users"
@@ -73,6 +81,7 @@ class Order(Base):
     uuidRequester = Column(String, nullable=True)
     response = Column(Text, nullable=True)
     timestamp = Column(DateTime(timezone=True), nullable=True)
+
 class EfpRun(Base):
     __tablename__ = 'efp_run'
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

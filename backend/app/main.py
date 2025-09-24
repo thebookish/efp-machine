@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.deps import AsyncSessionLocal, engine
 from app.routers import efp, ai, health, blotter, quotes, orders
-from app.services.scheduler import start_scheduler
+# from app.services.scheduler import start_scheduler
 from app.utils.time import now_uk
 from app.models import Base
 import asyncio

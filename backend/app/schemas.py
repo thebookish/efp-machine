@@ -3,6 +3,37 @@ from pydantic import BaseModel,Field
 from datetime import datetime
 from typing import Optional
 
+
+
+class InstrumentBase(BaseModel):
+    eurexcontractcode: Optional[str] = None
+    expirydate: Optional[str] = None
+    contractisin: Optional[str] = None
+    primaryassetclass: Optional[str] = None
+    baseproduct: Optional[str] = None
+    subproduct: Optional[str] = None
+    eurexproductisin: Optional[str] = None
+    underlyingindex: Optional[str] = None
+    underlyingindexisin: Optional[str] = None
+    currency: Optional[str] = None
+    strategyid: Optional[str] = None
+    strategydescription: Optional[str] = None
+    tradeableid: Optional[str] = None
+    contractid: Optional[str] = None
+    contractname: Optional[str] = None
+    strategyid2: Optional[str] = None
+    strategydisplayname: Optional[str] = None
+    strategybrandname: Optional[str] = None
+    refinstrument: Optional[str] = None
+    refprice: Optional[float] = None
+
+class InstrumentCreate(InstrumentBase):
+    pass
+
+class InstrumentResponse(InstrumentBase):
+    id: int
+    class Config:
+        orm_mode = True
 # -------- Users --------
 class UserCreate(BaseModel):
     uuid: str

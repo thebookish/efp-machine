@@ -2,7 +2,7 @@ import asyncio
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import insert, select
-from app.models import Order, User
+from app.models import Order, User, Instrument
 from app.schemas import OrderCreate
 
 ORDER_QUEUE = asyncio.Queue(maxsize=10000)  # prevents memory runaway
@@ -17,16 +17,13 @@ async def enqueue_order(order: OrderCreate):
 async def enrich_order_with_user(session: AsyncSession, order_dict: dict) -> dict:
     """
     Look up user table by uuid, add alias, legalEntityshortName,
-    and fill b_client/o_client, bids/offers.
+    and fill trader metadata.
     """
     sender_uuid = order_dict.get("sender_uuid")
-    # requester_uuid = order_dict.get("requester_uuid")
-
-    uuid_to_lookup = sender_uuid 
-    if not uuid_to_lookup:
+    if not sender_uuid:
         return order_dict
 
-    result = await session.execute(select(User).where(User.uuid == str(uuid_to_lookup)))
+    result = await session.execute(select(User).where(User.uuid == str(sender_uuid)))
     user = result.scalar_one_or_none()
     if user:
         order_dict["alias"] = user.alias
@@ -35,6 +32,28 @@ async def enrich_order_with_user(session: AsyncSession, order_dict: dict) -> dic
         order_dict["tpPostingIdRequester"] = user.tpPostingID
         order_dict["uuidRequester"] = user.uuid
 
+    return order_dict
+
+
+async def enrich_order_with_instrument(session: AsyncSession, order_dict: dict) -> dict:
+    """
+    Look up instruments table by contractId + expiryDate, fill strategyID if found.
+    """
+    contract_id = order_dict.get("contractId")
+    expiry = order_dict.get("expiryDate")
+
+    if not contract_id or not expiry:
+        return order_dict
+
+    result = await session.execute(
+        select(Instrument).where(
+            Instrument.contractid == contract_id,
+            Instrument.expirydate == expiry
+        )
+    )
+    instrument = result.scalars().first() 
+    if instrument:
+        order_dict["strategyID"] = instrument.strategyid
     return order_dict
 
 
@@ -63,14 +82,12 @@ async def order_worker(session_factory, batch_size=500, flush_interval=0.5):
                     "orderId": str(uuid.uuid4()),
                     "eventId": item.eventId,
                     "message": item.message,
-                    # "timestamp": item.timestamp,
                     "sender_uuid": str(item.sender_uuid) if item.sender_uuid else None,
                     "requester_uuid": str(item.requester_uuid) if item.requester_uuid else None,
                     "expiryDate": item.expiryDate,
-                    "strategyID": item.strategyID,
+                    "strategyID": item.strategyID,   # will be overridden by instrument lookup
                     "contractId": item.contractId,
                     "orderType": item.orderType,
-                    # "orderID": item.orderID,
                     "state": item.state,
                     "buySell": item.buySell,
                     "price": item.price,
@@ -87,12 +104,16 @@ async def order_worker(session_factory, batch_size=500, flush_interval=0.5):
                     "tpPostingIdRequester": None,
                     "uuidRequester": None,
                 }
-  
-                # ✅ enrich with user info + buyer/seller fields
+
+                # ✅ enrich with user info
                 order_dict = await enrich_order_with_user(session, order_dict)
+
+                # ✅ enrich with instrument strategyID
+                order_dict = await enrich_order_with_instrument(session, order_dict)
+
                 dicts.append(order_dict)
 
-   # ✅ Only commit once here, no nested begin()
+            # ✅ commit once per batch
             await session.execute(insert(Order), dicts)
             await session.commit()
 

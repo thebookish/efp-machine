@@ -1,4 +1,3 @@
-# app/services/fetch_messages.py
 import httpx
 from app.services.parse import parse_single_message
 from app.services.order_ingest import enqueue_order
@@ -21,11 +20,13 @@ async def fetch_and_process_messages():
 
     for msg_obj in event.get("messages", []):
         print(f"🔎 Parsing message for eventId={event_id}: {msg_obj.get('message')}")
-        parsed =  parse_single_message(event, msg_obj)
-        if parsed:
-            print(f"✅ Parsed order for eventId={event_id}")
-            await enqueue_order(parsed)
-            inserted += 1
+        parsed_orders = parse_single_message(event, msg_obj)
+
+        if parsed_orders:
+            for order in parsed_orders:  # ✅ handle multiple orders
+                await enqueue_order(order)
+                inserted += 1
+            print(f"✅ Parsed {len(parsed_orders)} order(s) for eventId={event_id}")
         else:
             print(f"❌ Failed to parse message for eventId={event_id}: {msg_obj}")
 

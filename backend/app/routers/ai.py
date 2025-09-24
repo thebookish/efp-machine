@@ -10,7 +10,7 @@ from app.schemas import (
 )
 from app.routers.efp import update_price, trade
 from app.routers.blotter import add_trade as blotter_add, remove_trade as blotter_remove
-from app.services.market import get_quote
+# from app.services.market import get_quote
 from app.routers.quotes import get_bbo
 from app.config import settings
 from openai import OpenAI

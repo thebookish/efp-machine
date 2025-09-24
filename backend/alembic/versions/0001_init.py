@@ -9,6 +9,31 @@ depends_on = None
 
 
 def upgrade():
+
+    op.create_table(
+        "instruments",
+        sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
+        sa.Column("eurexcontractcode", sa.String, nullable=True),
+        sa.Column("expirydate", sa.String, nullable=True),
+        sa.Column("contractisin", sa.String, nullable=True),
+        sa.Column("primaryassetclass", sa.String, nullable=True),
+        sa.Column("baseproduct", sa.String, nullable=True),
+        sa.Column("subproduct", sa.String, nullable=True),
+        sa.Column("eurexproductisin", sa.String, nullable=True),
+        sa.Column("underlyingindex", sa.String, nullable=True),
+        sa.Column("underlyingindexisin", sa.String, nullable=True),
+        sa.Column("currency", sa.String, nullable=True),
+        sa.Column("strategyid", sa.String, nullable=True),
+        sa.Column("strategydescription", sa.String, nullable=True),
+        sa.Column("tradeableid", sa.String, nullable=True),
+        sa.Column("contractid", sa.String, nullable=True),
+        sa.Column("contractname", sa.String, nullable=True),
+        sa.Column("strategyid2", sa.String, nullable=True),
+        sa.Column("strategydisplayname", sa.String, nullable=True),
+        sa.Column("strategybrandname", sa.String, nullable=True),
+        sa.Column("refinstrument", sa.String, nullable=True),
+        sa.Column("refprice", sa.Float, nullable=True),
+    )
     # --- users ---
     op.create_table(
         'users',
@@ -122,3 +147,4 @@ def downgrade():
     op.drop_table('efp_run')
     op.drop_table('orders')
     op.drop_table('users')
+    op.drop_table("instruments")

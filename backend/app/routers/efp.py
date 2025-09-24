@@ -1,5 +1,5 @@
 # backend/app/routers/efp.py
-from app.services.scheduler import get_last_prediction, publish_prediction
+# from app.services.scheduler import get_last_prediction, publish_prediction
 from app.services.efp_run import fetch_daily_efp_run
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession

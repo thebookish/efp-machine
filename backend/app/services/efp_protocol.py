@@ -2,7 +2,7 @@
 from typing import Optional
 from datetime import date, timedelta
 
-from app.services.theory import compute_theoretical
+# from app.services.theory import compute_theoretical
 
 WATCHPOINT_THRESHOLD = 0.75
 
