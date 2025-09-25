@@ -96,7 +96,7 @@ async def order_worker(session_factory, batch_size=500, flush_interval=0.5):
                     "refInstrument": item.refInstrument,
                     "refPrice": item.refPrice,
                     "response": item.response,
-                    "message_timestamp": item.timestamp,
+                    "message_timestamp": item.message_timestamp,
                     # placeholders for enrichment
                     "alias": None,
                     "legalEntityShortName": None,

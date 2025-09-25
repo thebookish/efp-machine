@@ -1,20 +1,18 @@
-from fastapi import HTTPException
-from app.services.fetch_messages import fetch_and_process_messages
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-import asyncio, httpx
-import json
-from app.deps import get_db, AsyncSessionLocal
+import asyncio
+
+from app.deps import get_db
 from app.models import Order
 from app.schemas import OrderResponse, OrderUpdate
-from app.services.order_ingest import enqueue_order
-from app.services.parse import parse_single_message
+from app.services.fetch_messages import fetch_and_process_messages
 from app.services.simple_parser import simple_parse_message
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 
 
+# --- WebSocket manager ---
 class OrdersWSManager:
     def __init__(self):
         self._lock = asyncio.Lock()
@@ -45,6 +43,7 @@ class OrdersWSManager:
 manager = OrdersWSManager()
 
 
+# --- Helpers ---
 async def _fetch_orders(db: AsyncSession):
     result = await db.execute(select(Order).order_by(Order.created_at.desc()))
     return list(result.scalars().all())
@@ -58,12 +57,22 @@ def _serialize_orders(orders: list[Order]) -> list[dict]:
 
 
 async def _push_full_list(db: AsyncSession):
+    """Broadcast the entire order list (used after bulk changes)."""
     orders = await _fetch_orders(db)
     await manager.broadcast_json(
         {"type": "orders_list", "payload": _serialize_orders(orders)}
     )
 
 
+async def _push_order_update(order: Order):
+    """Broadcast a single order update (used after edit)."""
+    order_dict = OrderResponse.model_validate(order, from_attributes=True).model_dump(mode="json")
+    await manager.broadcast_json(
+        {"type": "order_update", "payload": order_dict}
+    )
+
+
+# --- WebSocket feed ---
 @router.websocket("/ws")
 async def orders_ws(ws: WebSocket, db: AsyncSession = Depends(get_db)):
     await manager.connect(ws)
@@ -72,7 +81,7 @@ async def orders_ws(ws: WebSocket, db: AsyncSession = Depends(get_db)):
             {"type": "orders_list", "payload": _serialize_orders(await _fetch_orders(db))}
         )
         while True:
-            await asyncio.sleep(60)
+            await asyncio.sleep(60)  # keep connection alive
     except WebSocketDisconnect:
         await manager.disconnect(ws)
     except Exception:
@@ -83,7 +92,7 @@ async def orders_ws(ws: WebSocket, db: AsyncSession = Depends(get_db)):
             pass
 
 
-
+# --- Fetch orders from external API ---
 @router.post("/fetch")
 async def fetch_orders_from_api(db: AsyncSession = Depends(get_db)):
     """
@@ -91,10 +100,12 @@ async def fetch_orders_from_api(db: AsyncSession = Depends(get_db)):
     """
     try:
         result = await fetch_and_process_messages()
+        await _push_full_list(db)  # broadcast after fetch
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed fetching messages: {e}")
-    
+
+
 # --- List orders ---
 @router.get("/list", response_model=list[OrderResponse])
 async def list_orders(db: AsyncSession = Depends(get_db)):
@@ -112,24 +123,24 @@ async def edit_order(order_id: str, updates: OrderUpdate, db: AsyncSession = Dep
 
     update_data = updates.model_dump(exclude_unset=True)
 
-    # ✅ If response is being updated, parse it and auto-update fields
+    # If response is being updated, parse it and auto-update fields
     if "response" in update_data and update_data["response"]:
-      
-
         parsed = simple_parse_message(update_data["response"])
         if parsed:
-            order.contractId = parsed["contractId"]
-            order.expiryDate = parsed["expiryDate"]
-            order.buySell = parsed["buySell"]
-            order.price = parsed["price"]
-            order.basis = parsed["basis"]
+            order.contractId = parsed.get("contractId")
+            order.expiryDate = parsed.get("expiryDate")
+            order.buySell = parsed.get("buySell")
+            order.price = parsed.get("price")
+            order.basis = parsed.get("basis")
 
-    # ✅ Apply other updates
+    # Apply other updates
     for field, value in update_data.items():
         setattr(order, field, value)
 
     await db.commit()
     await db.refresh(order)
-    await _push_full_list(db)
-    return order
 
+    # Push single update to frontend
+    await _push_order_update(order)
+
+    return order
