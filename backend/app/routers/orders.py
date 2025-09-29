@@ -189,7 +189,8 @@ async def edit_order(order_id: str, updates: OrderUpdate, db: AsyncSession = Dep
     await db.commit()
     await db.refresh(order)
 
-    # Push single update to frontend
-    await _push_order_update(order)
+    # Push update only if state == "ACCEPTED"
+    if order.state and order.state.upper() == "ACCEPTED":
+        await _push_order_update(order)
 
     return order
