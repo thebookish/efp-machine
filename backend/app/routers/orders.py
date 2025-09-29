@@ -1,3 +1,6 @@
+from fastapi import  Request
+from app.services.order_ingest import enqueue_order
+from app.services.parse import parse_single_message
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -91,6 +94,52 @@ async def orders_ws(ws: WebSocket, db: AsyncSession = Depends(get_db)):
         except Exception:
             pass
 
+# --- Slack Events ---
+@router.post("/slack/events")
+async def slack_events(request: Request, db: AsyncSession = Depends(get_db)):
+    """
+    Handle Slack event callbacks.
+    If it's a message event, parse it and create orders just like fetch API.
+    """
+    payload = await request.json()
+    event_type = payload.get("type")
+
+    # Step 1: URL Verification (Slack handshake)
+    if event_type == "url_verification":
+        return {"challenge": payload.get("challenge")}
+
+    # Step 2: Event callback
+    if event_type == "event_callback":
+        event = payload.get("event", {})
+        if event.get("type") == "message" and "subtype" not in event:
+            text = event.get("text")
+            user = event.get("user")
+            ts = event.get("ts")
+            channel = event.get("channel")
+
+            # Build fake event+msg_obj like your fetch API
+            fake_event = {"eventId": ts}
+            msg_obj = {
+                "message": text,
+                "timestamp": ts,
+                "sender": {"uuid": user},
+            }
+
+            parsed_orders = parse_single_message(fake_event, msg_obj)
+            if parsed_orders:
+                if not isinstance(parsed_orders, list):
+                    parsed_orders = [parsed_orders]
+
+                for order in parsed_orders:
+                    await enqueue_order(order)
+
+                await _push_full_list(db)  # broadcast updates to frontend
+
+                return {"status": "accepted", "queued": len(parsed_orders)}
+
+            return {"status": "ignored", "reason": "not an order message"}
+
+    return {"status": "ok"}
 
 # --- Fetch orders from external API ---
 @router.post("/fetch")

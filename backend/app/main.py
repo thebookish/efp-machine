@@ -35,7 +35,7 @@ app.include_router(ai.router)
 app.include_router(blotter.router)
 app.include_router(quotes.router)
 app.include_router(orders.router)
-app.include_router(slack_msg.router)
+# app.include_router(slack_msg.router)
 
 @app.get("/")
 async def root():
