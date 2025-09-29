@@ -25,6 +25,7 @@ dependencies = [
   'yfinance',
   'python-multipart',
   'httpx'
+  'slack_sdk'
 ]
 
 [project.optional-dependencies]
