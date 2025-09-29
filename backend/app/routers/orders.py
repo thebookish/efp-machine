@@ -118,7 +118,7 @@ async def slack_events(request: Request, db: AsyncSession = Depends(get_db)):
             channel = event.get("channel")
 
             # Build fake event+msg_obj like your fetch API
-            fake_event = {"eventId": ts}
+            fake_event = {"eventId": payload.get("event_id")}
             msg_obj = {
                 "message": text,
                 "timestamp": ts,

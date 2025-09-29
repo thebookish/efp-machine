@@ -112,8 +112,10 @@ def parse_single_message(event: dict, msg_obj: dict) -> Optional[List[OrderCreat
                 linkedOrderID=None,  # singles not grouped
             )
         ]
-
-    # --- AI Fallback ---
+    # --- AI fallback (only if looks trade-related) ---
+    # Strict filter: only try AI if contains TRF or EFP
+    if not any(keyword in msg_text.upper() for keyword in ["TRF", "EFP"]):
+        return None  # 🚫 Ignore normal chat
     prompt = f"""
     Extract structured trade info from the following message:
 
