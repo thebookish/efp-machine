@@ -21,12 +21,16 @@ CONVERSATIONS = {}
 
 SYSTEM_PROMPT = (
     "You are the EFP Machine assistant. "
-    "You may only respond with tool calls "
+    "If the user message starts with 'send', always call the broadcast_message tool. "
+    "Extract the message text (everything after 'send' and before 'to'), "
+    "and detect recipients (Slack channels/users or WhatsApp contacts) after 'to'. "
+    "Never guess phone numbers: if unsure, just return the name string. "
+    "Otherwise respond with the normal trade/order tools "
     "(update_price, trade, blotter_add, blotter_remove, get_bbo, "
-    "order_list, order_create, order_edit, order_delete, order_summary, slack_send_message). "
-    "Keep track of context across the conversation. "
+    "order_list, order_create, order_edit, order_delete, order_summary). "
     "Never guess or assume missing values. "
 )
+
 
 # --- Build order context for RAG ---
 async def build_order_context(db: AsyncSession, limit: int = 50) -> str:
@@ -178,20 +182,20 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
   "type": "function",
   "function": {
     "name": "broadcast_message",
-    "description": "Recognize 'send ... to ...' style instructions and split into message text, slack targets, and whatsapp numbers",
+    "description": "Send a message to Slack and/or WhatsApp. Auto-detect text vs recipients from natural language input.",
     "parameters": {
       "type": "object",
       "properties": {
-        "text": {"type": "string", "description": "The message to be delivered"},
+        "text": {"type": "string", "description": "Message text to send"},
         "slack_targets": {
           "type": "array",
           "items": {"type": "string"},
-          "description": "Slack channel names (#trading) or Slack user names"
+          "description": "Slack channels (#trading) or user IDs"
         },
         "whatsapp_numbers": {
           "type": "array",
           "items": {"type": "string"},
-          "description": "Phone numbers or contact names that map to WhatsApp"
+          "description": "WhatsApp numbers or contact names"
         }
       },
       "required": ["text"]
@@ -302,30 +306,26 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                     result = {"reply": f"WhatsApp message sent to {args['to']}"}
 
             elif name == "broadcast_message":
-                results = {"slack": [], "whatsapp": []}
+                message_text = args["text"]
+                whatsapp_numbers = args.get("whatsapp_numbers", [])
+                if isinstance(whatsapp_numbers, str):
+                    whatsapp_numbers = [whatsapp_numbers]
 
-                # Slack broadcast
-                if args.get("slack_targets"):
-                    slack_targets = args["slack_targets"]
-                    if isinstance(slack_targets, str):
-                        slack_targets = [slack_targets]
-                    for target in slack_targets:
-                        res = await send_slack_message(target, args["text"])
-                        results["slack"].append({target: res})
+                slack_targets = args.get("slack_targets", [])
+                if isinstance(slack_targets, str):
+                    slack_targets = [slack_targets]
 
-                # WhatsApp broadcast
-                if args.get("whatsapp_numbers"):
-                    whatsapp_numbers = args["whatsapp_numbers"]
-                    if isinstance(whatsapp_numbers, str):
-                        whatsapp_numbers = [whatsapp_numbers]
-                    for number in whatsapp_numbers:
-                        res = await send_whatsapp_message(number, args["text"])
-                        results["whatsapp"].append({number: res})
+                results = {"slack": [], "whatsapp": []} 
+
+                if slack_targets:
+                    res = await send_slack_message(slack_targets, message_text)
+                    results["slack"].extend(res)
+
+                if whatsapp_numbers:
+                    res = await send_whatsapp_message(whatsapp_numbers, message_text)
+                    results["whatsapp"].extend(res)
 
                 result = {"reply": "Broadcast completed", "results": results}
-
-
-
 
             else:
                 result = {"reply": f"Unknown tool call: {name}"}
