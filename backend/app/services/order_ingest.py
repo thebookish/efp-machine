@@ -49,7 +49,7 @@ async def enrich_order_with_instrument(session: AsyncSession, order_dict: dict) 
     )
     instrument = result.scalars().first()
     if instrument:
-        order_dict["strategyID"] = instrument.strategyid
+        order_dict["strategyID"] = instrument.tradeableId 
     return order_dict
 
 

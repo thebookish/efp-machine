@@ -9,7 +9,10 @@ async def send_whatsapp_message(numbers: list[str], text: str) -> dict:
     Send a WhatsApp message to multiple phone numbers.
     numbers: list of phone numbers in E.164 (+123...).
     """
+    if isinstance(numbers, str):
+        numbers = [numbers]
     results = []
+
     for n in numbers:
         try:
             msg = twilio_client.messages.create(
@@ -21,6 +24,8 @@ async def send_whatsapp_message(numbers: list[str], text: str) -> dict:
         except Exception as e:
             results.append({"target": n, "ok": False, "error": str(e)})
     return results
+
+
 # async def send_whatsapp_message(to: str, text: str) -> dict:
 #     """
 #     Send a WhatsApp message using Twilio.

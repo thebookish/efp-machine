@@ -1,5 +1,5 @@
 from sqlalchemy.orm import declarative_base, Mapped, mapped_column
-from sqlalchemy import String, Float, Integer, DateTime,JSON, Boolean, Text,Column,Numeric, CheckConstraint
+from sqlalchemy import String, Float, Integer,Date, DateTime,JSON, Boolean, Text,Column,Numeric, CheckConstraint
 from datetime import datetime
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID
@@ -29,31 +29,18 @@ class BloombergMessage(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
+
 class Instrument(Base):
     __tablename__ = "instruments"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-
-    eurexcontractcode = Column(String, nullable=True)
-    expirydate = Column(String, nullable=True)            # e.g. "DEC26"
-    contractisin = Column(String, nullable=True)
-    primaryassetclass = Column(String, nullable=True)
-    baseproduct = Column(String, nullable=True)
-    subproduct = Column(String, nullable=True)
-    eurexproductisin = Column(String, nullable=True)
-    underlyingindex = Column(String, nullable=True)
-    underlyingindexisin = Column(String, nullable=True)
-    currency = Column(String, nullable=True)
-    strategyid = Column(String, nullable=True)
-    strategydescription = Column(String, nullable=True)
-    tradeableid = Column(String, nullable=True)
-    contractid = Column(String, nullable=True)            # e.g. "SX5E"
-    contractname = Column(String, nullable=True)
-    strategyid2 = Column(String, nullable=True)
-    strategydisplayname = Column(String, nullable=True)
-    strategybrandname = Column(String, nullable=True)
-    refinstrument = Column(String, nullable=True)
-    refprice = Column(Float, nullable=True)
+    tradeableId = Column(String, primary_key=True, index=True)   # e.g. SX5E_TRF_ICAP_P133IYzI003c25
+    expiryDate = Column(Date, nullable=False)                    # ISO date (YYYY-MM-DD)
+    code = Column(String, nullable=False)                        # contract month code e.g. Z25
+    currency = Column(String, nullable=False)                    # e.g. EUR
+    contractId = Column(String, nullable=False)                  # underlying contract/index
+    strategyDisplayName = Column(String, nullable=False)          # e.g. TRF
+    refInstrument = Column(String, nullable=True)                # optional
+    refPrice = Column(Float, nullable=True)                      # optional
 
 class User(Base):
     __tablename__ = "users"

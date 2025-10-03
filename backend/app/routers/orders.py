@@ -1,12 +1,15 @@
+from app.services.fetch_messages import fetch_and_process_messages
+from app.services.parse import parse_single_message
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import asyncio
 from datetime import datetime, timezone
-
+from fastapi import  Request
 from app.deps import get_db
-from app.models import Order
-from app.schemas import OrderResponse, OrderUpdate
+from app.models import BloombergMessage, Order
+from app.schemas import BloombergMessageResponse, OrderResponse, OrderUpdate
+from .bloomberg_msg import message_manager  # reuse WS manager
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 
@@ -86,7 +89,85 @@ async def orders_ws(ws: WebSocket, db: AsyncSession = Depends(get_db)):
         except Exception:
             pass
 
+@router.post("/slack/events")
+async def slack_events(request: Request, db: AsyncSession = Depends(get_db)):
+    """
+    Handle Slack event callbacks.
+    If it's a message event, check if it's trade-related via parse_single_message.
+    If yes, store it in BloombergMessage table (status = drafted).
+    """
+    payload = await request.json()
+    event_type = payload.get("type")
 
+    # --- Step 1: URL Verification (Slack handshake)
+    if event_type == "url_verification":
+        return {"challenge": payload.get("challenge")}
+
+    # --- Step 2: Event callback
+    if event_type == "event_callback":
+        event = payload.get("event", {})
+        if event.get("type") == "message" and "subtype" not in event:
+            text = event.get("text")
+            user = event.get("user")
+            ts = event.get("ts")
+
+            # Build fake event+msg_obj for parser
+            fake_event = {"eventId": payload.get("event_id")}
+            msg_obj = {
+                "message": text,
+                "timestamp": ts,
+                "sender": {"uuid": user},
+            }
+
+            # parse
+            parsed_meta = parse_single_message(fake_event, msg_obj)
+
+            if parsed_meta:
+                # Save in BloombergMessage table
+                new_msg = BloombergMessage(
+                    eventId=parsed_meta["eventId"],
+                    roomId=event.get("channel"),
+                    originalMessage=text,
+                    trader_uuid=parsed_meta.get("trader_uuid"),
+                    trader_legalEntityShortName=None,  # can enrich later from Users table
+                    trader_alias=None,
+                    original_llm_json=None,
+                    current_json=None,
+                    is_edited=False,
+                    messageStatus="drafted",
+                )
+                db.add(new_msg)
+                await db.commit()
+                await db.refresh(new_msg)
+
+                # Broadcast to WS clients
+                payload = BloombergMessageResponse.model_validate(
+                    new_msg, from_attributes=True
+                ).model_dump(mode="json")
+                await message_manager.broadcast_json(
+                    {"type": "message_new", "payload": payload}
+                )
+
+                return {"status": "stored", "eventId": parsed_meta["eventId"]}
+
+            return {"status": "ignored", "reason": "not an order message"}
+
+    return {"status": "ok"}
+
+
+# --- Fetch orders from external API ---
+@router.post("/fetch")
+async def fetch_orders_from_api(db: AsyncSession = Depends(get_db)):
+    """
+    Fetch new messages from external API, parse, and enqueue into DB.
+    """
+    try:
+        result = await fetch_and_process_messages()
+        await _push_full_list(db)  # broadcast after fetch
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed fetching messages: {e}")
+    
 # --- Update order status ---
 @router.post("/update-order/{order_id}", response_model=OrderResponse)
 async def update_order(order_id: str, updates: OrderUpdate, db: AsyncSession = Depends(get_db)):

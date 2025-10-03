@@ -1,8 +1,7 @@
 import re
 import json
 import uuid
-from typing import Optional, List
-from app.schemas import OrderCreate
+from typing import Optional
 from openai import OpenAI
 from app.config import settings
 
@@ -16,7 +15,13 @@ SINGLE_REGEX = re.compile(
 )
 
 
-def parse_single_message(event: dict, msg_obj: dict) -> Optional[List[OrderCreate]]:
+def parse_single_message(event: dict, msg_obj: dict) -> Optional[dict]:
+    """
+    Detect whether a Bloomberg chat message is trade/order related.
+    If yes, return metadata (not an Order).
+    If no, return None (ignore as normal chat).
+    """
+
     msg_text = msg_obj.get("message", "").strip()
     if not msg_text:
         return None
@@ -24,86 +29,44 @@ def parse_single_message(event: dict, msg_obj: dict) -> Optional[List[OrderCreat
     event_id = str(event.get("eventId")) if event.get("eventId") else str(uuid.uuid4())
     trader_uuid = str(msg_obj.get("sender", {}).get("uuid")) if msg_obj.get("sender") else None
 
-    linked_id = event_id  # ✅ group orders by eventId
-
-    orders: List[OrderCreate] = []
-
+    # --- PRICE RUN ---
     if "vs" in msg_text and RUN_LINE_REGEX.search(msg_text):
-        basis_match = re.search(r"vs\s*([0-9.+-]+)", msg_text)
-        basis = float(basis_match.group(1)) if basis_match else 0.0
+        return {
+            "eventId": event_id,
+            "message": msg_text,
+            "trader_uuid": trader_uuid,
+            "type": "PRICE_RUN"
+        }
 
-        contract_match = re.match(r"([A-Z0-9]+)\s+TRF", msg_text)
-        contract_id = contract_match.group(1).upper() if contract_match else "UNKNOWN"
-
-        for run in RUN_LINE_REGEX.finditer(msg_text):
-            expiry = run.group("expiry").upper()
-            bid = float(run.group("bid"))
-            ask = float(run.group("ask"))
-
-            orders.append(OrderCreate(
-                eventId=event_id,
-                linkedOrderID=linked_id,
-                message=msg_text,
-                expiryDate=expiry,
-                strategyID=None,
-                contractId=contract_id,
-                side="BUY",
-                price=bid,
-                basis=basis,
-                traderUuid=trader_uuid,
-            ))
-            orders.append(OrderCreate(
-                eventId=event_id,
-                linkedOrderID=linked_id,
-                message=msg_text,
-                expiryDate=expiry,
-                strategyID=None,
-                contractId=contract_id,
-                side="SELL",
-                price=ask,
-                basis=basis,
-                traderUuid=trader_uuid,
-            ))
-        return orders
-
+    # --- SINGLE TRADE ---
     match = SINGLE_REGEX.search(msg_text)
     if match:
-        return [OrderCreate(
-            eventId=event_id,
-            linkedOrderID=linked_id,
-            message=msg_text,
-            expiryDate=match.group("expiryDate").upper(),
-            strategyID=None,
-            contractId=match.group("contractId").upper(),
-            side=match.group("side").upper(),
-            price=float(match.group("price")),
-            basis=float(match.group("basis")),
-            traderUuid=trader_uuid,
-        )]
+        return {
+            "eventId": event_id,
+            "message": msg_text,
+            "trader_uuid": trader_uuid,
+            "type": "SINGLE"
+        }
 
-    # fallback to AI
+    # --- Fallback: AI classification ---
     try:
         resp = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a precise trade parser."},
-                {"role": "user", "content": f"Parse: {msg_text}"},
+                {"role": "system", "content": "Classify if this Bloomberg chat message is a trade/order or just normal chat."},
+                {"role": "user", "content": f"Message: {msg_text}\nReply ONLY with 'ORDER' or 'CHAT'."},
             ],
-            response_format={"type": "json_object"},
         )
-        parsed = json.loads(resp.choices[0].message.content)
-        return [OrderCreate(
-            eventId=event_id,
-            linkedOrderID=linked_id,
-            message=msg_text,
-            expiryDate=parsed["expiryDate"].upper(),
-            strategyID=None,
-            contractId=parsed["contractId"].upper(),
-            side=parsed["buySell"].upper(),
-            price=float(parsed["price"]),
-            basis=float(parsed["basis"]),
-            traderUuid=trader_uuid,
-        )]
+        label = resp.choices[0].message.content.strip().upper()
+        if "ORDER" in label:
+            return {
+                "eventId": event_id,
+                "message": msg_text,
+                "trader_uuid": trader_uuid,
+                "type": "AI_ORDER"
+            }
+        else:
+            return None
     except Exception as e:
-        print(f"⚠️ AI parsing failed: {e}")
+        print(f"⚠️ AI classification failed: {e}")
         return None
