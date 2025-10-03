@@ -1,3 +1,4 @@
+from app.services.whatsapp_client import send_whatsapp_message
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, func
@@ -156,6 +157,49 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                         },
                     },
                 },
+                {
+    "type": "function",
+    "function": {
+        "name": "whatsapp_send_message",
+        "description": "Recognize 'send ... to ...' style instructions and split into message text and whatsapp numbers and send message to whatsapp",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "to": {"type": "string", "description": "Phone number in +E.164 format"},
+                "text": {"type": "string", "description": "Message to send"},
+            },
+            "required": ["to", "text"],
+        },
+    },
+    
+},
+
+{
+  "type": "function",
+  "function": {
+    "name": "broadcast_message",
+    "description": "Recognize 'send ... to ...' style instructions and split into message text, slack targets, and whatsapp numbers",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "text": {"type": "string", "description": "The message to be delivered"},
+        "slack_targets": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Slack channel names (#trading) or Slack user names"
+        },
+        "whatsapp_numbers": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Phone numbers or contact names that map to WhatsApp"
+        }
+      },
+      "required": ["text"]
+    }
+  }
+}
+
+
             ],
         )
 
@@ -249,6 +293,39 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
             elif name == "slack_send_message":
                 await send_slack_message(args["channel"], args["text"])
                 result = {"reply": f"Message sent to {args['channel']}"}
+
+            elif name == "whatsapp_send_message":
+                res = await send_whatsapp_message(args["to"], args["text"])
+                if not res["ok"]:
+                    result = {"reply": f"Failed to send WhatsApp: {res['error']}"}
+                else:
+                    result = {"reply": f"WhatsApp message sent to {args['to']}"}
+
+            elif name == "broadcast_message":
+                results = {"slack": [], "whatsapp": []}
+
+                # Slack broadcast
+                if args.get("slack_targets"):
+                    slack_targets = args["slack_targets"]
+                    if isinstance(slack_targets, str):
+                        slack_targets = [slack_targets]
+                    for target in slack_targets:
+                        res = await send_slack_message(target, args["text"])
+                        results["slack"].append({target: res})
+
+                # WhatsApp broadcast
+                if args.get("whatsapp_numbers"):
+                    whatsapp_numbers = args["whatsapp_numbers"]
+                    if isinstance(whatsapp_numbers, str):
+                        whatsapp_numbers = [whatsapp_numbers]
+                    for number in whatsapp_numbers:
+                        res = await send_whatsapp_message(number, args["text"])
+                        results["whatsapp"].append({number: res})
+
+                result = {"reply": "Broadcast completed", "results": results}
+
+
+
 
             else:
                 result = {"reply": f"Unknown tool call: {name}"}

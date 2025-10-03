@@ -113,6 +113,17 @@ class OrderResponse(OrderCreate):
 
     class Config:
         from_attributes = True
+
+
+class SlackMessageRequest(BaseModel):
+    channel: str
+    text: str
+
+class SlackMessageResponse(BaseModel):
+    ok: bool
+    channel: str | None = None
+    ts: str | None = None
+    error: str | None = None
 # -------- Trades --------
 class TradeRequest(BaseModel):
     index: str

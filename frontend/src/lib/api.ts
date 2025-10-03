@@ -16,3 +16,11 @@ export async function getRun() {
   const { data } = await api.get("/api/efp/run");
   return data;
 }
+export async function getSlackDestinations() {
+  const res = await fetch("http://localhost:8000/api/slack/destinations");
+  if (!res.ok) {
+    console.error("Failed to fetch destinations", await res.text());
+    return { destinations: [] };
+  }
+  return res.json();
+}

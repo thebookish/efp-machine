@@ -22,3 +22,4 @@ yfinance
 python-multipart
 httpx
 slack_sdk
+twilio

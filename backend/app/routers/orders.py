@@ -74,6 +74,26 @@ async def _push_order_update(order: Order):
         {"type": "order_update", "payload": order_dict}
     )
 
+async def _push_order_accepted(order: Order):
+    """Broadcast a single order update (used after edit)."""
+    order_dict = OrderResponse.model_validate(order, from_attributes=True).model_dump(mode="json")
+    await manager.broadcast_json(
+        {"type": "order_accepted", "payload": order_dict}
+    )
+
+async def _push_order_structured(order: Order):
+    """Broadcast a single order update (used after edit)."""
+    order_dict = OrderResponse.model_validate(order, from_attributes=True).model_dump(mode="json")
+    await manager.broadcast_json(
+        {"type": "order_structured", "payload": order_dict}
+    )
+
+async def _push_order_active(order: Order):
+    """Broadcast a single order update (used after edit)."""
+    order_dict = OrderResponse.model_validate(order, from_attributes=True).model_dump(mode="json")
+    await manager.broadcast_json(
+        {"type": "order_activate", "payload": order_dict}
+    )
 
 # --- WebSocket feed ---
 @router.websocket("/ws")
@@ -191,6 +211,10 @@ async def edit_order(order_id: str, updates: OrderUpdate, db: AsyncSession = Dep
 
     # Push update only if state == "ACCEPTED"
     if order.state and order.state.upper() == "ACCEPTED":
-        await _push_order_update(order)
+        await _push_order_accepted(order)
+    if order.state and order.state.upper() == "STRUCTURED":
+        await _push_order_structured(order)
+    if order.state and order.state.upper() == "ACTIVE":
+        await _push_order_active(order)
 
     return order
