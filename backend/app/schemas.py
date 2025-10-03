@@ -1,8 +1,37 @@
 # backend/app/schemas.py
 from pydantic import BaseModel,Field
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Any, List
 
+class BloombergMessageBase(BaseModel):
+    eventId: str
+    roomId: str
+    originalMessage: str
+    trader_uuid: str
+    trader_legalEntityShortName: Optional[str] = None
+    trader_alias: Optional[str] = None
+    original_llm_json: Optional[Any] = None
+    current_json: Optional[Any] = None
+    is_edited: Optional[bool] = False
+    messageStatus: str = "received"   # NEW: received / rejected / approved
+
+
+class BloombergMessageCreate(BloombergMessageBase):
+    pass
+
+
+class BloombergMessageUpdate(BaseModel):
+    current_json: Optional[Any] = None
+    is_edited: Optional[bool] = None
+    messageStatus: Optional[str] = None
+
+
+class BloombergMessageResponse(BloombergMessageBase):
+    created_at: Optional[datetime]
+    updated_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True
 
 
 class InstrumentBase(BaseModel):
@@ -52,64 +81,49 @@ class UserCreate(BaseModel):
 class UserResponse(UserCreate):
     created_at: datetime
 
+class OrderStatusEntry(BaseModel):
+    orderStatus: str
+    timestamp: datetime
+
+
 class OrderCreate(BaseModel):
-    eventId: Optional[str] = None
-    message: Optional[str] = None
-    message_timestamp: Optional[str] = None
-    sender_uuid: Optional[str] = None
-    requester_uuid: Optional[str] = None
-    expiryDate: Optional[str] = None
+    eventId: str
+    linkedOrderID: str
+    message: str
+    expiryDate: str
     strategyID: Optional[str] = None
-    contractId: Optional[str] = None
-    orderType: Optional[str] = None
-    # orderID: Optional[str] = None
-    state: Optional[str] = None
-    buySell: Optional[str] = None
-    price: Optional[float] = None
-    basis: Optional[float] = None
-    linkedOrderID: Optional[str] = None
-    refInstrument: Optional[str] = None
+    contractId: str
+    side: str
+    price: float
+    basis: float
+    orderStatus: str = "active"
+    traderUuid: str
+    traderLegalEntityShortName: Optional[str] = None
+    traderAlias: Optional[str] = None
     refPrice: Optional[float] = None
-    alias: Optional[str] = None
-    legalEntityShortName: Optional[str] = None
-    tpUserUidTrader: Optional[str] = None
-    tpPostingIdRequester: Optional[str] = None
-    uuidRequester: Optional[str] = None
-    response: Optional[str] = None
-    timestamp: Optional[datetime] = None
+    orderStatusHistory: List[OrderStatusEntry] = []
+    reminderEnabled: bool = False
+    reminderCount: int = 0
+    nextReminderDue: Optional[datetime] = None
+    lastReminderSent: Optional[datetime] = None
+    reminderHistory: List[dict] = []
+    lastUpdated: Optional[datetime] = None
 
 
 class OrderUpdate(BaseModel):
-    # All fields optional for editing
-    eventId: Optional[str] = None
-    message: Optional[str] = None
-    message_timestamp: Optional[str] = None
-    sender_uuid: Optional[str] = None
-    requester_uuid: Optional[str] = None
-    expiryDate: Optional[str] = None
-    strategyID: Optional[str] = None
-    contractId: Optional[str] = None
-    orderType: Optional[str] = None
-    # orderID: Optional[str] = None
-    state: Optional[str] = None
-    buySell: Optional[str] = None
-    price: Optional[float] = None
-    basis: Optional[float] = None
-    linkedOrderID: Optional[str] = None
-    refInstrument: Optional[str] = None
-    refPrice: Optional[float] = None
-    alias: Optional[str] = None
-    legalEntityShortName: Optional[str] = None
-    tpUserUidTrader: Optional[str] = None
-    tpPostingIdRequester: Optional[str] = None
-    uuidRequester: Optional[str] = None
-    response: Optional[str] = None
-    timestamp: Optional[datetime] = None
+    orderStatus: Optional[str] = None
+    orderStatusHistory: Optional[List[OrderStatusEntry]] = None
+    reminderEnabled: Optional[bool] = None
+    reminderCount: Optional[int] = None
+    nextReminderDue: Optional[datetime] = None
+    lastReminderSent: Optional[datetime] = None
+    reminderHistory: Optional[List[dict]] = None
+    lastUpdated: Optional[datetime] = None
 
 
 class OrderResponse(OrderCreate):
     orderId: str
-    created_at: datetime
+    createdAt: datetime
 
     class Config:
         from_attributes = True

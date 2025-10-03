@@ -3,6 +3,8 @@ from app.services.efp_run import fetch_daily_efp_run
 from app.services.order_ingest import order_worker
 from app.services.user_loader import load_users_from_csv
 from app.routers import slack_msg
+from app.routers import whatsapp
+from app.routers import bloomberg_msg
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
@@ -36,6 +38,8 @@ app.include_router(blotter.router)
 app.include_router(quotes.router)
 app.include_router(orders.router)
 app.include_router(slack_msg.router)
+app.include_router(whatsapp.router)
+app.include_router(bloomberg_msg.router)
 
 @app.get("/")
 async def root():

@@ -1,21 +1,17 @@
-from fastapi import  Request
-from app.services.order_ingest import enqueue_order
-from app.services.parse import parse_single_message
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import asyncio
+from datetime import datetime, timezone
 
 from app.deps import get_db
 from app.models import Order
 from app.schemas import OrderResponse, OrderUpdate
-from app.services.fetch_messages import fetch_and_process_messages
-from app.services.simple_parser import simple_parse_message
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 
 
-# --- WebSocket manager ---
+# --- WebSocket manager for orders ---
 class OrdersWSManager:
     def __init__(self):
         self._lock = asyncio.Lock()
@@ -48,7 +44,7 @@ manager = OrdersWSManager()
 
 # --- Helpers ---
 async def _fetch_orders(db: AsyncSession):
-    result = await db.execute(select(Order).order_by(Order.created_at.desc()))
+    result = await db.execute(select(Order).order_by(Order.createdAt.desc()))
     return list(result.scalars().all())
 
 
@@ -60,7 +56,6 @@ def _serialize_orders(orders: list[Order]) -> list[dict]:
 
 
 async def _push_full_list(db: AsyncSession):
-    """Broadcast the entire order list (used after bulk changes)."""
     orders = await _fetch_orders(db)
     await manager.broadcast_json(
         {"type": "orders_list", "payload": _serialize_orders(orders)}
@@ -68,32 +63,9 @@ async def _push_full_list(db: AsyncSession):
 
 
 async def _push_order_update(order: Order):
-    """Broadcast a single order update (used after edit)."""
     order_dict = OrderResponse.model_validate(order, from_attributes=True).model_dump(mode="json")
-    await manager.broadcast_json(
-        {"type": "order_update", "payload": order_dict}
-    )
+    await manager.broadcast_json({"type": "order_update", "payload": order_dict})
 
-async def _push_order_accepted(order: Order):
-    """Broadcast a single order update (used after edit)."""
-    order_dict = OrderResponse.model_validate(order, from_attributes=True).model_dump(mode="json")
-    await manager.broadcast_json(
-        {"type": "order_accepted", "payload": order_dict}
-    )
-
-async def _push_order_structured(order: Order):
-    """Broadcast a single order update (used after edit)."""
-    order_dict = OrderResponse.model_validate(order, from_attributes=True).model_dump(mode="json")
-    await manager.broadcast_json(
-        {"type": "order_structured", "payload": order_dict}
-    )
-
-async def _push_order_active(order: Order):
-    """Broadcast a single order update (used after edit)."""
-    order_dict = OrderResponse.model_validate(order, from_attributes=True).model_dump(mode="json")
-    await manager.broadcast_json(
-        {"type": "order_activate", "payload": order_dict}
-    )
 
 # --- WebSocket feed ---
 @router.websocket("/ws")
@@ -104,7 +76,7 @@ async def orders_ws(ws: WebSocket, db: AsyncSession = Depends(get_db)):
             {"type": "orders_list", "payload": _serialize_orders(await _fetch_orders(db))}
         )
         while True:
-            await asyncio.sleep(60)  # keep connection alive
+            await asyncio.sleep(60)
     except WebSocketDisconnect:
         await manager.disconnect(ws)
     except Exception:
@@ -114,77 +86,14 @@ async def orders_ws(ws: WebSocket, db: AsyncSession = Depends(get_db)):
         except Exception:
             pass
 
-# --- Slack Events ---
-@router.post("/slack/events")
-async def slack_events(request: Request, db: AsyncSession = Depends(get_db)):
+
+# --- Update order status ---
+@router.post("/update-order/{order_id}", response_model=OrderResponse)
+async def update_order(order_id: str, updates: OrderUpdate, db: AsyncSession = Depends(get_db)):
     """
-    Handle Slack event callbacks.
-    If it's a message event, parse it and create orders just like fetch API.
+    Update an order's status (orderStatus).
+    Append the change into orderStatusHistory with timestamp.
     """
-    payload = await request.json()
-    event_type = payload.get("type")
-
-    # Step 1: URL Verification (Slack handshake)
-    if event_type == "url_verification":
-        return {"challenge": payload.get("challenge")}
-
-    # Step 2: Event callback
-    if event_type == "event_callback":
-        event = payload.get("event", {})
-        if event.get("type") == "message" and "subtype" not in event:
-            text = event.get("text")
-            user = event.get("user")
-            ts = event.get("ts")
-            channel = event.get("channel")
-
-            # Build fake event+msg_obj like your fetch API
-            fake_event = {"eventId": payload.get("event_id")}
-            msg_obj = {
-                "message": text,
-                "timestamp": ts,
-                "sender": {"uuid": user},
-            }
-
-            parsed_orders = parse_single_message(fake_event, msg_obj)
-            if parsed_orders:
-                if not isinstance(parsed_orders, list):
-                    parsed_orders = [parsed_orders]
-
-                for order in parsed_orders:
-                    await enqueue_order(order)
-
-                await _push_full_list(db)  # broadcast updates to frontend
-
-                return {"status": "accepted", "queued": len(parsed_orders)}
-
-            return {"status": "ignored", "reason": "not an order message"}
-
-    return {"status": "ok"}
-
-# --- Fetch orders from external API ---
-@router.post("/fetch")
-async def fetch_orders_from_api(db: AsyncSession = Depends(get_db)):
-    """
-    Fetch new messages from external API, parse, and enqueue into DB.
-    """
-    try:
-        result = await fetch_and_process_messages()
-        await _push_full_list(db)  # broadcast after fetch
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed fetching messages: {e}")
-
-
-# --- List orders ---
-@router.get("/list", response_model=list[OrderResponse])
-async def list_orders(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Order).order_by(Order.created_at.desc()))
-    return result.scalars().all()
-
-
-# --- Edit order ---
-@router.put("/edit/{order_id}", response_model=OrderResponse)
-async def edit_order(order_id: str, updates: OrderUpdate, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Order).where(Order.orderId == order_id))
     order = result.scalar_one_or_none()
     if not order:
@@ -192,29 +101,27 @@ async def edit_order(order_id: str, updates: OrderUpdate, db: AsyncSession = Dep
 
     update_data = updates.model_dump(exclude_unset=True)
 
-    # If response is being updated, parse it and auto-update fields
-    if "response" in update_data and update_data["response"]:
-        parsed = simple_parse_message(update_data["response"])
-        if parsed:
-            order.contractId = parsed.get("contractId")
-            order.expiryDate = parsed.get("expiryDate")
-            order.buySell = parsed.get("buySell")
-            order.price = parsed.get("price")
-            order.basis = parsed.get("basis")
+    # Handle orderStatus updates with history tracking
+    if "state" in update_data or "orderStatus" in update_data:
+        new_status = update_data.get("state") or update_data.get("orderStatus")
+        if new_status and new_status != order.orderStatus:
+            order.orderStatus = new_status
+            history = order.orderStatusHistory or []
+            history.append({
+                "orderStatus": new_status,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            })
+            order.orderStatusHistory = history
 
     # Apply other updates
     for field, value in update_data.items():
-        setattr(order, field, value)
+        if hasattr(order, field) and field not in ["state", "orderStatusHistory"]:
+            setattr(order, field, value)
 
     await db.commit()
     await db.refresh(order)
 
-    # Push update only if state == "ACCEPTED"
-    if order.state and order.state.upper() == "ACCEPTED":
-        await _push_order_accepted(order)
-    if order.state and order.state.upper() == "STRUCTURED":
-        await _push_order_structured(order)
-    if order.state and order.state.upper() == "ACTIVE":
-        await _push_order_active(order)
+    # Broadcast update
+    await _push_order_update(order)
 
     return order

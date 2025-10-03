@@ -9,28 +9,24 @@ ORDER_QUEUE = asyncio.Queue(maxsize=10000)  # prevents memory runaway
 
 
 async def enqueue_order(order: OrderCreate):
+    """Put a parsed order into the queue."""
     print(f"📥 Enqueued order: {order.message}")
-    """Put a parsed order into queue."""
     await ORDER_QUEUE.put(order)
 
 
 async def enrich_order_with_user(session: AsyncSession, order_dict: dict) -> dict:
     """
-    Look up user table by uuid, add alias, legalEntityshortName,
-    and fill trader metadata.
+    Look up user table by uuid and enrich alias + legalEntityShortName.
     """
-    sender_uuid = order_dict.get("sender_uuid")
-    if not sender_uuid:
+    trader_uuid = order_dict.get("traderUuid")
+    if not trader_uuid:
         return order_dict
 
-    result = await session.execute(select(User).where(User.uuid == str(sender_uuid)))
+    result = await session.execute(select(User).where(User.uuid == str(trader_uuid)))
     user = result.scalar_one_or_none()
     if user:
-        order_dict["alias"] = user.alias
-        order_dict["legalEntityShortName"] = user.legalEntityShortName
-        order_dict["tpUserUidTrader"] = user.tpUserUID
-        order_dict["tpPostingIdRequester"] = user.tpPostingID
-        order_dict["uuidRequester"] = user.uuid
+        order_dict["traderAlias"] = user.alias
+        order_dict["traderLegalEntityShortName"] = user.legalEntityShortName
 
     return order_dict
 
@@ -51,7 +47,7 @@ async def enrich_order_with_instrument(session: AsyncSession, order_dict: dict) 
             Instrument.expirydate == expiry
         )
     )
-    instrument = result.scalars().first() 
+    instrument = result.scalars().first()
     if instrument:
         order_dict["strategyID"] = instrument.strategyid
     return order_dict
@@ -70,7 +66,7 @@ async def order_worker(session_factory, batch_size=500, flush_interval=0.5):
                 item = await asyncio.wait_for(ORDER_QUEUE.get(), timeout=flush_interval)
                 batch.append(item)
         except asyncio.TimeoutError:
-            pass  # no more orders right now
+            pass
 
         if not batch:
             continue
@@ -78,31 +74,32 @@ async def order_worker(session_factory, batch_size=500, flush_interval=0.5):
         dicts = []
         async with session_factory() as session:
             for item in batch:
+                # build order dict based on new schema
                 order_dict = {
                     "orderId": str(uuid.uuid4()),
                     "eventId": item.eventId,
+                    "linkedOrderID": item.linkedOrderID or item.eventId,
                     "message": item.message,
-                    "sender_uuid": str(item.sender_uuid) if item.sender_uuid else None,
-                    "requester_uuid": str(item.requester_uuid) if item.requester_uuid else None,
                     "expiryDate": item.expiryDate,
-                    "strategyID": item.strategyID,   # will be overridden by instrument lookup
+                    "strategyID": item.strategyID,
                     "contractId": item.contractId,
-                    "orderType": item.orderType,
-                    "state": item.state,
-                    "buySell": item.buySell,
+                    "side": item.side,
                     "price": item.price,
                     "basis": item.basis,
-                    "linkedOrderID": item.linkedOrderID,
-                    "refInstrument": item.refInstrument,
+                    "orderStatus": item.orderStatus or "active",
+                    "orderStatusHistory": item.orderStatusHistory or [
+                        {"orderStatus": "accepted", "timestamp": str(uuid.uuid1())}
+                    ],
+                    "traderUuid": item.traderUuid,
+                    "traderLegalEntityShortName": item.traderLegalEntityShortName,
+                    "traderAlias": item.traderAlias,
                     "refPrice": item.refPrice,
-                    "response": item.response,
-                    "message_timestamp": item.message_timestamp,
-                    # placeholders for enrichment
-                    "alias": None,
-                    "legalEntityShortName": None,
-                    "tpUserUidTrader": None,
-                    "tpPostingIdRequester": None,
-                    "uuidRequester": None,
+                    "reminderEnabled": item.reminderEnabled or False,
+                    "reminderCount": item.reminderCount or 0,
+                    "nextReminderDue": item.nextReminderDue,
+                    "lastReminderSent": item.lastReminderSent,
+                    "reminderHistory": item.reminderHistory or [],
+                    "lastUpdated": item.lastUpdated,
                 }
 
                 # ✅ enrich with user info

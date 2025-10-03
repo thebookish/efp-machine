@@ -1,11 +1,33 @@
 from sqlalchemy.orm import declarative_base, Mapped, mapped_column
-from sqlalchemy import String, Float, Integer, DateTime, Text,Column,Numeric, CheckConstraint
+from sqlalchemy import String, Float, Integer, DateTime,JSON, Boolean, Text,Column,Numeric, CheckConstraint
 from datetime import datetime
 from sqlalchemy.sql import func
+from sqlalchemy.dialects.postgresql import UUID
+import uuid
 
 Base = declarative_base()
 
 
+class BloombergMessage(Base):
+    __tablename__ = "bloomberg_messages"
+
+    # id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    eventId = Column(String, nullable=False, unique=True,primary_key=True,)
+    roomId = Column(String, nullable=False)
+    originalMessage = Column(Text, nullable=False)
+
+    trader_uuid = Column(String, nullable=False)
+    trader_legalEntityShortName = Column(String, nullable=True)
+    trader_alias = Column(String, nullable=True)
+
+    original_llm_json = Column(JSON, nullable=True)
+    current_json = Column(JSON, nullable=True)
+
+    is_edited = Column(Boolean, default=False)
+    messageStatus = Column(String, default="received")  # received/rejected/approved
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 class Instrument(Base):
     __tablename__ = "instruments"
@@ -53,34 +75,34 @@ class User(Base):
 class Order(Base):
     __tablename__ = "orders"
 
-    orderId = Column(String, primary_key=True, index=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    orderId = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    createdAt = Column(DateTime(timezone=True), server_default=func.now())
+    lastUpdated = Column(DateTime(timezone=True), onupdate=func.now())
 
-    # CSV fields (all nullable, since sometimes missing)
-    eventId = Column(String, nullable=True)
-    message = Column(Text, nullable=True)
-    message_timestamp = Column(String, nullable=True)
-    sender_uuid = Column(String, nullable=True)
-    requester_uuid = Column(String, nullable=True)
-    expiryDate = Column(String, nullable=True)
+    eventId = Column(String, nullable=False)
+    linkedOrderID = Column(String, nullable=False)
+    message = Column(String, nullable=False)
+    expiryDate = Column(String, nullable=False)
     strategyID = Column(String, nullable=True)
-    contractId = Column(String, nullable=True)
-    orderType = Column(String, nullable=True)
-    # orderID = Column(String, nullable=True)
-    state = Column(String, nullable=True)
-    buySell = Column(String, nullable=True)
-    price = Column(Float, nullable=True)
-    basis = Column(Float, nullable=True)
-    linkedOrderID = Column(String, nullable=True)
-    refInstrument = Column(String, nullable=True)
+    contractId = Column(String, nullable=False)
+    side = Column(String, nullable=False)  # BUY/SELL
+    price = Column(Float, nullable=False)
+    basis = Column(Float, nullable=False)
+
+    orderStatus = Column(String, default="active")
+    orderStatusHistory = Column(JSON, default=list)
+
+    traderUuid = Column(String, nullable=False)
+    traderLegalEntityShortName = Column(String, nullable=True)
+    traderAlias = Column(String, nullable=True)
+
     refPrice = Column(Float, nullable=True)
-    alias = Column(String, nullable=True)
-    legalEntityShortName = Column(String, nullable=True)
-    tpUserUidTrader= Column(String, nullable=True)
-    tpPostingIdRequester = Column(String, nullable=True)
-    uuidRequester = Column(String, nullable=True)
-    response = Column(Text, nullable=True)
-    timestamp = Column(DateTime(timezone=True), nullable=True)
+
+    reminderEnabled = Column(Boolean, default=False)
+    reminderCount = Column(Integer, default=0)
+    nextReminderDue = Column(DateTime(timezone=True), nullable=True)
+    lastReminderSent = Column(DateTime(timezone=True), nullable=True)
+    reminderHistory = Column(JSON, default=list)
 
 class EfpRun(Base):
     __tablename__ = 'efp_run'

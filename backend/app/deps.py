@@ -20,7 +20,7 @@ url = URL.create(
     password="npg_kaERqV3XBD6s",
     host="ep-frosty-voice-ad7jm1zk-pooler.c-2.us-east-1.aws.neon.tech",
     port=5432,
-    database="efp",
+    database="efp1",
 )
 ssl_ctx = ssl.create_default_context()
 # async_url = to_async_url(settings.DATABASE_URL)
