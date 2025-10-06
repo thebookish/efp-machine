@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { askAI, getSlackDestinations } from "../lib/api";
 
 type Suggestion = { id: string; name: string; type: "channel" | "user" | "whatsapp" };
@@ -10,13 +10,14 @@ export default function ChatPanel() {
   const [allDestinations, setAllDestinations] = useState<Suggestion[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [destMap, setDestMap] = useState<{ [name: string]: string }>({});
+  const textRef = useRef<HTMLTextAreaElement>(null);
 
-  // --- Fetch Slack + add mock WhatsApp contacts ---
+  // --- Fetch Slack + mock WhatsApp contacts ---
   useEffect(() => {
     getSlackDestinations().then((res) => {
       const slack = res.destinations || [];
 
-      // ✅ Mock WhatsApp contacts (replace with DB later)
+      // ✅ Mock WhatsApp contacts
       const whatsapp = [
         { id: "+8801823564420", name: "Alice WhatsApp", type: "whatsapp" },
         { id: "+8801906786163", name: "Bob WhatsApp", type: "whatsapp" },
@@ -25,15 +26,25 @@ export default function ChatPanel() {
       const combined = [...slack, ...whatsapp];
       setAllDestinations(combined);
 
-      // Build name → id map for replacement
+      // Map name → ID
       const map: any = {};
-      combined.forEach((d: any) => { map[d.name] = d.id });
+      combined.forEach((d: any) => {
+        map[d.name] = d.id;
+      });
       setDestMap(map);
     });
   }, []);
 
-  // --- Handle input ---
-  const onChangeInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // --- Auto expand textarea height ---
+  useEffect(() => {
+    if (textRef.current) {
+      textRef.current.style.height = "auto";
+      textRef.current.style.height = textRef.current.scrollHeight + "px";
+    }
+  }, [input]);
+
+  // --- Autocomplete logic ---
+  const onChangeInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setInput(value);
 
@@ -51,33 +62,30 @@ export default function ChatPanel() {
 
   const pickSuggestion = (s: Suggestion) => {
     const parts = input.split(" ");
-    parts[parts.length - 1] = s.name; // show readable name
+    parts[parts.length - 1] = s.name;
     setInput(parts.join(" "));
     setSuggestions([]);
   };
 
-  // --- Replace names with IDs before sending ---
+  // --- Replace readable names with IDs ---
   const preprocessInput = (text: string) => {
     let replaced = text;
     Object.keys(destMap).forEach((name) => {
-      if (replaced.includes(name)) {
-        replaced = replaced.replace(name, destMap[name]);
-      }
+      if (replaced.includes(name)) replaced = replaced.replace(name, destMap[name]);
     });
     return replaced;
   };
 
+  // --- Send message ---
   const send = async () => {
     if (!input.trim()) return;
-    const userMsg = input;
+    const userMsg = input.trim();
     setInput("");
     setSuggestions([]);
     setLog((l) => [...l, { role: "user", text: userMsg }]);
 
     try {
-      // 👇 Replace names with Slack/WhatsApp IDs
       const processed = preprocessInput(userMsg);
-
       const resp = await askAI(processed);
       if (resp.session_id && !sessionId) setSessionId(resp.session_id);
 
@@ -90,8 +98,11 @@ export default function ChatPanel() {
     }
   };
 
-  const onKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") send();
+  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
   };
 
   return (
@@ -99,15 +110,12 @@ export default function ChatPanel() {
       <h2 className="text-xl font-bold mb-2 text-sky-400">AI Assistant</h2>
 
       {/* Chat log */}
-      <div className="flex-1 overflow-y-auto space-y-2 mb-3 max-h-[400px] pr-1">
+      <div className="flex-1 overflow-y-auto space-y-3 mb-3 max-h-[400px] pr-1">
         {log.map((m, i) => (
-          <div
-            key={i}
-            className={m.role === "user" ? "text-right" : "text-left"}
-          >
+          <div key={i} className={m.role === "user" ? "text-right" : "text-left"}>
             <span
               className={
-                "inline-block px-3 py-2 rounded-2xl max-w-[80%] break-words " +
+                "inline-block px-3 py-2 rounded-2xl max-w-[80%] whitespace-pre-line break-words " +
                 (m.role === "user"
                   ? "bg-sky-600 text-white"
                   : "bg-gray-700 text-gray-100")
@@ -119,14 +127,16 @@ export default function ChatPanel() {
         ))}
       </div>
 
-      {/* Input with autocomplete */}
+      {/* Textarea input */}
       <div className="relative">
-        <input
-          className="w-full border border-gray-700 bg-black text-gray-100 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"
+        <textarea
+          ref={textRef}
+          className="w-full border border-gray-700 bg-black text-gray-100 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500 resize-none overflow-hidden"
+          rows={1}
           value={input}
           onChange={onChangeInput}
-          onKeyDown={onKey}
-          placeholder="e.g., send hello to Alice WhatsApp"
+          onKeyDown={onKeyDown}
+          placeholder="Type message... (Shift+Enter for new line, Enter to send)"
         />
 
         {suggestions.length > 0 && (
@@ -145,7 +155,8 @@ export default function ChatPanel() {
         )}
       </div>
 
-      <div className="mt-2">
+      {/* Send button */}
+      <div className="mt-3">
         <button
           className="w-full py-2 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-medium"
           onClick={send}

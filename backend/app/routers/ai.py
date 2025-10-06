@@ -146,37 +146,6 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                         },
                     },
                 },
-#                 {
-#                     "type": "function",
-#                     "function": {
-#                         "name": "slack_send_message",
-#                         "description": "Send a Slack message to channel or user",
-#                         "parameters": {
-#                             "type": "object",
-#                             "properties": {
-#                                 "channel": {"type": "string"},
-#                                 "text": {"type": "string"},
-#                             },
-#                             "required": ["channel", "text"],
-#                         },
-#                     },
-#                 },
-#                 {
-#     "type": "function",
-#     "function": {
-#         "name": "whatsapp_send_message",
-#         "description": "Recognize 'send ... to ...' style instructions and split into message text and whatsapp numbers and send message to whatsapp",
-#         "parameters": {
-#             "type": "object",
-#             "properties": {
-#                 "to": {"type": "string", "description": "Phone number in +E.164 format"},
-#                 "text": {"type": "string", "description": "Message to send"},
-#             },
-#             "required": ["to", "text"],
-#         },
-#     },
-    
-# },
 
 {
   "type": "function",
@@ -293,17 +262,6 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                 await db.commit()
                 result = {"reply": f"Order {order_id} deleted."}
                 await manager.broadcast_json({"type": "order_delete", "payload": {"orderId": order_id}})
-
-            # elif name == "slack_send_message":
-            #     await send_slack_message(args["channel"], args["text"])
-            #     result = {"reply": f"Message sent to {args['channel']}"}
-
-            # elif name == "whatsapp_send_message":
-            #     res = await send_whatsapp_message(args["to"], args["text"])
-            #     if not res["ok"]:
-            #         result = {"reply": f"Failed to send WhatsApp: {res['error']}"}
-            #     else:
-            #         result = {"reply": f"WhatsApp message sent to {args['to']}"}
 
             elif name == "broadcast_message":
                 message_text = args["text"]

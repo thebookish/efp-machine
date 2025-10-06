@@ -2,17 +2,20 @@ from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from app.config import settings
 
-client = WebClient(token='xoxb-9589939613474-9586561820389-IGFPQYiDyBNDE3G6mpYrgtUo')
+client = WebClient(token='xoxb-9589939613474-9586561820389-GagVujctu75psYMhzYPwvi87')
 
 async def send_slack_message(targets: list[str], text: str) -> dict:
     """
-    Send a message to multiple Slack channels/users.
-    targets: list of channel IDs (C123...) or user IDs (U123...).
+    Send a Slack message (preserving line breaks) to multiple channels or users.
     """
+    if isinstance(targets, str):
+        targets = [targets]
+
+    formatted_text = text.replace("\n", "\n")  # Slack interprets '\n' as line breaks
     results = []
     for t in targets:
         try:
-            response = client.chat_postMessage(channel=t, text=text)
+            response = client.chat_postMessage(channel=t, text=formatted_text)
             results.append({"target": t, "ok": True, "ts": response["ts"]})
         except SlackApiError as e:
             results.append({"target": t, "ok": False, "error": str(e)})

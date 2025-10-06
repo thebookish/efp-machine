@@ -6,19 +6,20 @@ twilio_client = Client('ACeb0700777fee4f0e60de0e7cb0bc40fd','ac6089c725cbe5fcd81
 TWILIO_WHATSAPP_NUMBER='+14155238886' 
 async def send_whatsapp_message(numbers: list[str], text: str) -> dict:
     """
-    Send a WhatsApp message to multiple phone numbers.
-    numbers: list of phone numbers in E.164 (+123...).
+    Send a WhatsApp message (with line breaks preserved) to multiple phone numbers.
     """
+    # Ensure it's always a list
     if isinstance(numbers, str):
         numbers = [numbers]
-    results = []
 
+    results = []
     for n in numbers:
         try:
+            formatted_text = text.replace("\n", "\n")  # WhatsApp supports raw '\n'
             msg = twilio_client.messages.create(
-                from_="whatsapp:" + settings.TWILIO_WHATSAPP_NUMBER.strip(),
+                from_="whatsapp:" + TWILIO_WHATSAPP_NUMBER.strip(),
                 to="whatsapp:" + n.strip(),
-                body=text,
+                body=formatted_text,
             )
             results.append({"target": n, "ok": True, "sid": msg.sid})
         except Exception as e:
