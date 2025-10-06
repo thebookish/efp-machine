@@ -82,7 +82,9 @@ async def create_message(msg_in: BloombergMessageCreate, db: AsyncSession = Depe
         original_llm_json=msg_in.original_llm_json,
         current_json=msg_in.current_json,
         is_edited=msg_in.is_edited or False,
+        isTarget=msg_in.isTarget or False,
         messageStatus="drafted"
+       
     )
     db.add(new_msg)
     await db.commit()
@@ -148,6 +150,7 @@ async def accept_message(event_id: str, updates: BloombergMessageUpdate, db: Asy
                         traderUuid=msg.trader_uuid,
                         traderAlias=msg.trader_alias,
                         traderLegalEntityShortName=msg.trader_legalEntityShortName,
+                        isTarget=msg.isTarget,
                     )
                     parsed_orders.append(order)
 

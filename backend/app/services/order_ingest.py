@@ -94,6 +94,8 @@ async def order_worker(session_factory, batch_size=500, flush_interval=0.5):
                     "traderLegalEntityShortName": item.traderLegalEntityShortName,
                     "traderAlias": item.traderAlias,
                     "refPrice": item.refPrice,
+                    "isTarget": item.isTarget,
+                    "targetPrice": None,
                     "reminderEnabled": item.reminderEnabled or False,
                     "reminderCount": item.reminderCount or 0,
                     "nextReminderDue": item.nextReminderDue,

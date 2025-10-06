@@ -15,7 +15,7 @@ class BloombergMessageBase(BaseModel):
     is_edited: Optional[bool] = False
     messageStatus: str = "received"   # NEW: received / rejected / approved
     source: Optional[str] = None
-    isTarget: bool = False
+    isTarget: Optional[bool] = False
 
 
 class BloombergMessageCreate(BloombergMessageBase):
