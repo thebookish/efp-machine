@@ -342,7 +342,7 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                 per_contract = (await db.execute(per_contract_stmt)).all()
 
                 summary_lines = [
-                    f"🗓️ **Yesterday's Order Summary ({start.date()}):**",
+                    f"🗓️ **Order Summary**",
                     f"- Total orders: {count_}",
                     f"- Avg price: {round(avg_px or 0, 2)}",
                     f"- Price range: {round(min_px or 0, 2)} – {round(max_px or 0, 2)}",
