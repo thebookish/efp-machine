@@ -141,6 +141,7 @@ async def slack_events(request: Request, db: AsyncSession = Depends(get_db)):
                     current_json=None,
                     is_edited=False,
                     messageStatus="drafted",
+                    source="slack",
                 )
                 db.add(new_msg)
                 await db.commit()

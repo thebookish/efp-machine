@@ -45,6 +45,7 @@ async def fetch_and_process_messages(db: AsyncSession):
             "current_json": None,
             "is_edited": False,
             "messageStatus": "received",
+            "source": "bloomberg",
         }
 
         await db.execute(insert(BloombergMessage).values(bloomberg_msg))

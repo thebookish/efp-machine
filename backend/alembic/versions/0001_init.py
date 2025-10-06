@@ -26,7 +26,7 @@ def upgrade():
 
         sa.Column("is_edited", sa.Boolean(), server_default="false"),
         sa.Column("messageStatus", sa.String(), server_default="received", nullable=False),
-
+        sa.Column("source", sa.String(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), onupdate=sa.func.now()),
     )

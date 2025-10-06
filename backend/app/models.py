@@ -25,7 +25,7 @@ class BloombergMessage(Base):
 
     is_edited = Column(Boolean, default=False)
     messageStatus = Column(String, default="received")  # received/rejected/approved
-
+    source =  Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
