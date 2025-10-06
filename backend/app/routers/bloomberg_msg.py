@@ -83,7 +83,9 @@ async def create_message(msg_in: BloombergMessageCreate, db: AsyncSession = Depe
         current_json=msg_in.current_json,
         is_edited=msg_in.is_edited or False,
         isTarget=msg_in.isTarget or False,
+        source= msg_in.source,
         messageStatus="drafted"
+       
        
     )
     db.add(new_msg)
