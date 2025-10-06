@@ -43,13 +43,13 @@ async def enrich_order_with_instrument(session: AsyncSession, order_dict: dict) 
 
     result = await session.execute(
         select(Instrument).where(
-            Instrument.contractid == contract_id,
-            Instrument.expirydate == expiry
+            Instrument.contractId == contract_id,
+            Instrument.expiryDate == expiry
         )
     )
     instrument = result.scalars().first()
     if instrument:
-        order_dict["strategyID"] = instrument.tradeableId 
+        order_dict["strategyID"] = instrument.tradeableId
     return order_dict
 
 

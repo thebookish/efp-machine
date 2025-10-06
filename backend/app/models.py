@@ -26,6 +26,7 @@ class BloombergMessage(Base):
     is_edited = Column(Boolean, default=False)
     messageStatus = Column(String, default="received")  # received/rejected/approved
     source =  Column(String, nullable=True)
+    isTarget = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -90,6 +91,8 @@ class Order(Base):
     nextReminderDue = Column(DateTime(timezone=True), nullable=True)
     lastReminderSent = Column(DateTime(timezone=True), nullable=True)
     reminderHistory = Column(JSON, default=list)
+    isTraget = Column(Boolean, default=False)
+    targetPrice = Column(Float, nullable=True)
 
 class EfpRun(Base):
     __tablename__ = 'efp_run'

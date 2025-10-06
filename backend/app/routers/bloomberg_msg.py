@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, update
 import asyncio
 
 from app.deps import get_db
-from app.models import BloombergMessage
+from app.models import BloombergMessage, Order
 from app.schemas import BloombergMessageCreate, BloombergMessageResponse, BloombergMessageUpdate, OrderCreate
 from app.services.parse import parse_single_message
 from app.services.order_ingest import enqueue_order
@@ -218,5 +218,41 @@ async def set_llm_response(event_id: str, payload: dict, db: AsyncSession = Depe
     await message_manager.broadcast_json(
         {"type": "message_update", "payload": updated_payload}
     )
+
+    return msg
+
+# --- Update isTarget field ---
+@router.put("/update-target/{event_id}", response_model=BloombergMessageResponse)
+async def update_target(event_id: str, payload: dict, db: AsyncSession = Depends(get_db)):
+    """
+    Update `isTarget` for a BloombergMessage.
+    If the message is already approved, also update related Orders.
+    """
+    is_target = payload.get("isTarget")
+    if is_target is None:
+        raise HTTPException(status_code=400, detail="isTarget must be provided (true/false)")
+
+    result = await db.execute(select(BloombergMessage).where(BloombergMessage.eventId == event_id))
+    msg = result.scalar_one_or_none()
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    msg.isTarget = bool(is_target)
+    await db.commit()
+    await db.refresh(msg)
+
+    # --- Update related orders if message is approved ---
+    if msg.messageStatus == "approved":
+        await db.execute(
+            update(Order)
+            .where(Order.eventId == event_id)
+            .values(isTarget=bool(is_target))
+        )
+        await db.commit()
+        print(f"Updated related orders for eventId={event_id} with isTarget={is_target}")
+
+    # --- Broadcast update to WebSocket clients ---
+    payload = BloombergMessageResponse.model_validate(msg, from_attributes=True).model_dump(mode="json")
+    await message_manager.broadcast_json({"type": "message_update", "payload": payload})
 
     return msg

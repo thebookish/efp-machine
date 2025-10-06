@@ -24,7 +24,7 @@ SYSTEM_PROMPT = (
     "If the user message starts with 'send', always call the broadcast_message tool. "
     "Extract the message text (everything after 'send' and before 'to'), "
     "and detect recipients (Slack channels/users or WhatsApp contacts) after 'to'. "
-    "Never guess phone numbers: if unsure, just return the name string. "
+    # "Never guess phone numbers: if unsure, just return the name string. "
     "Otherwise respond with the normal trade/order tools "
     "(update_price, trade, blotter_add, blotter_remove, get_bbo, "
     "order_list, order_create, order_edit, order_delete, order_summary). "
@@ -171,7 +171,6 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
     }
   }
 }
-
 
             ],
         )

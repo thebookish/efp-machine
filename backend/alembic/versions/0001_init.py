@@ -27,6 +27,7 @@ def upgrade():
         sa.Column("is_edited", sa.Boolean(), server_default="false"),
         sa.Column("messageStatus", sa.String(), server_default="received", nullable=False),
         sa.Column("source", sa.String(), nullable=True),
+        sa.Column("isTarget", sa.Boolean(), server_default="false"),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), onupdate=sa.func.now()),
     )
@@ -89,6 +90,9 @@ def upgrade():
         sa.Column("nextReminderDue", sa.DateTime(timezone=True), nullable=True),
         sa.Column("lastReminderSent", sa.DateTime(timezone=True), nullable=True),
         sa.Column("reminderHistory", postgresql.JSON(astext_type=sa.Text()), server_default="[]"),
+        sa.Column("isTarget", sa.Boolean(), server_default="false"),
+        sa.Column("targetPrice", sa.String(), nullable=True),
+
     )
 
 

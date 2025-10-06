@@ -15,6 +15,7 @@ class BloombergMessageBase(BaseModel):
     is_edited: Optional[bool] = False
     messageStatus: str = "received"   # NEW: received / rejected / approved
     source: Optional[str] = None
+    isTarget: bool = False
 
 
 class BloombergMessageCreate(BloombergMessageBase):
@@ -100,6 +101,8 @@ class OrderCreate(BaseModel):
     lastReminderSent: Optional[datetime] = None
     reminderHistory: List[dict] = []
     lastUpdated: Optional[datetime] = None
+    isTarget: bool = False
+    targetPrice: Optional[float] = None
 
 
 class OrderUpdate(BaseModel):
@@ -111,6 +114,8 @@ class OrderUpdate(BaseModel):
     lastReminderSent: Optional[datetime] = None
     reminderHistory: Optional[List[dict]] = None
     lastUpdated: Optional[datetime] = None
+    isTarget: bool = False
+    targetPrice: Optional[float] = None
 
 
 class OrderResponse(OrderCreate):
