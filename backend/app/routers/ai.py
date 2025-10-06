@@ -13,6 +13,8 @@ from app.routers.orders import _push_order_update, manager
 from app.config import settings
 from openai import OpenAI
 import json, uuid
+from datetime import datetime, timedelta, timezone
+from sqlalchemy import and_, func
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
@@ -170,7 +172,35 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
       "required": ["text"]
     }
   }
+},
+{
+  "type": "function",
+  "function": {
+    "name": "predict_order_suggestion",
+    "description": "Analyze historical orders to suggest a good target price or basis for a given contract/expiry",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "contractId": {"type": "string"},
+        "expiryDate": {"type": "string"}
+      },
+      "required": ["contractId", "expiryDate"]
+    }
+  }
 }
+,
+{
+  "type": "function",
+  "function": {
+    "name": "daily_report_summary",
+    "description": "Summarize yesterday's orders and spreads in natural language",
+    "parameters": {
+      "type": "object",
+      "properties": {},
+    },
+  },
+},
+
 
             ],
         )
@@ -283,6 +313,68 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                     results["whatsapp"].extend(res)
 
                 result = {"reply": "Broadcast completed", "results": results}
+
+            elif name == "daily_report_summary":
+
+                tz = timezone.utc
+                today = datetime.now(tz)
+                start = today - timedelta(days=1)
+                end = today
+
+                stmt = (
+                    select(
+                        func.count(Order.orderId),
+                        func.avg(Order.price),
+                        func.min(Order.price),
+                        func.max(Order.price),
+                        func.avg(Order.basis),
+                    )
+                    .where(and_(Order.createdAt >= start, Order.createdAt < end))
+                )
+                count_, avg_px, min_px, max_px, avg_basis = (await db.execute(stmt)).one()
+
+                # per contract summary
+                per_contract_stmt = (
+                    select(Order.contractId, func.count(Order.orderId), func.avg(Order.price))
+                    .where(and_(Order.createdAt >= start, Order.createdAt < end))
+                    .group_by(Order.contractId)
+                )
+                per_contract = (await db.execute(per_contract_stmt)).all()
+
+                summary_lines = [
+                    f"🗓️ **Yesterday's Order Summary ({start.date()}):**",
+                    f"- Total orders: {count_}",
+                    f"- Avg price: {round(avg_px or 0, 2)}",
+                    f"- Price range: {round(min_px or 0, 2)} – {round(max_px or 0, 2)}",
+                    f"- Avg basis: {round(avg_basis or 0, 2)}",
+                    "",
+                    "📊 **Per Contract:**",
+                ]
+                for c, cnt, avgp in per_contract:
+                    summary_lines.append(f"• {c}: {cnt} orders, avg price {round(avgp or 0, 2)}")
+
+                result = {"reply": "\n".join(summary_lines)}
+
+            elif name == "predict_order_suggestion":
+                contract = args["contractId"]
+                expiry = args["expiryDate"]
+
+                stmt = select(Order.price, Order.basis).where(Order.contractId == contract, Order.expiryDate == expiry)
+                rows = await db.execute(stmt)
+                data = rows.fetchall()
+
+                if not data:
+                    result = {"reply": f"No past orders found for {contract} {expiry}."}
+                else:
+                    prices = [r[0] for r in data if r[0] is not None]
+                    avg_price = sum(prices) / len(prices)
+                    min_price, max_price = min(prices), max(prices)
+
+                    suggestion = round((avg_price + max_price) / 2, 2)
+                    result = {
+                        "reply": f"Most traders placed {contract} {expiry} between {min_price:.2f}–{max_price:.2f}. "
+                                f"Suggest {suggestion:.2f} based on recent tightening."
+                    }
 
             else:
                 result = {"reply": f"Unknown tool call: {name}"}
