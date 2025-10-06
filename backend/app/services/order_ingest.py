@@ -1,7 +1,8 @@
 import asyncio
+from datetime import datetime
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import insert, select
+from sqlalchemy import insert, select, cast, Date
 from app.models import Order, User, Instrument
 from app.schemas import OrderCreate
 
@@ -40,11 +41,15 @@ async def enrich_order_with_instrument(session: AsyncSession, order_dict: dict) 
 
     if not contract_id or not expiry:
         return order_dict
-
+    try:
+        expiry_date = datetime.strptime(expiry, "%Y-%m-%d").date()
+    except ValueError:
+        print(f"⚠️ Invalid expiry format for order: {expiry}")
+        return order_dict
     result = await session.execute(
         select(Instrument).where(
             Instrument.contractId == contract_id,
-            Instrument.expiryDate == expiry
+            Instrument.expiryDate == expiry_date
         )
     )
     instrument = result.scalars().first()

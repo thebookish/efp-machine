@@ -84,21 +84,21 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                         },
                     },
                 },
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "order_summary",
-                        "description": "Summarize orders (counts, best prices, avg, etc.)",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "contractId": {"type": "string"},
-                                "expiryDate": {"type": "string"},
-                                "state": {"type": "string"},
-                            },
-                        },
-                    },
-                },
+                # {
+                #     "type": "function",
+                #     "function": {
+                #         "name": "order_summary",
+                #         "description": "Summarize orders (counts, best prices, avg, etc.)",
+                #         "parameters": {
+                #             "type": "object",
+                #             "properties": {
+                #                 "contractId": {"type": "string"},
+                #                 "expiryDate": {"type": "string"},
+                #                 "state": {"type": "string"},
+                #             },
+                #         },
+                #     },
+                # },
                 {
                     "type": "function",
                     "function": {
@@ -193,7 +193,7 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
   "type": "function",
   "function": {
     "name": "daily_report_summary",
-    "description": "Summarize yesterday's orders and spreads in natural language",
+    "description": "Summarize today's or yesterday's orders and spreads in natural language",
     "parameters": {
       "type": "object",
       "properties": {},
@@ -232,27 +232,27 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                 orders = rows.scalars().all()
                 result = {"orders": [OrderResponse.model_validate(o, from_attributes=True).model_dump(mode="json") for o in orders]}
 
-            elif name == "order_summary":
-                stmt = select(
-                    func.count(Order.orderId),
-                    func.max(Order.price),
-                    func.min(Order.price),
-                    func.avg(Order.price),
-                )
-                if args.get("contractId"):
-                    stmt = stmt.where(Order.contractId == args["contractId"])
-                if args.get("expiryDate"):
-                    stmt = stmt.where(Order.expiryDate == args["expiryDate"])
-                if args.get("state"):
-                    stmt = stmt.where(Order.state == args["state"])
+            # elif name == "order_summary":
+            #     stmt = select(
+            #         func.count(Order.orderId),
+            #         func.max(Order.price),
+            #         func.min(Order.price),
+            #         func.avg(Order.price),
+            #     )
+            #     if args.get("contractId"):
+            #         stmt = stmt.where(Order.contractId == args["contractId"])
+            #     if args.get("expiryDate"):
+            #         stmt = stmt.where(Order.expiryDate == args["expiryDate"])
+            #     if args.get("state"):
+            #         stmt = stmt.where(Order.state == args["state"])
 
-                row = (await db.execute(stmt)).one()
-                result = {
-                    "total_orders": row[0],
-                    "max_price": row[1],
-                    "min_price": row[2],
-                    "avg_price": float(row[3]) if row[3] else None,
-                }
+            #     row = (await db.execute(stmt)).one()
+            #     result = {
+            #         "total_orders": row[0],
+            #         "max_price": row[1],
+            #         "min_price": row[2],
+            #         "avg_price": float(row[3]) if row[3] else None,
+            #     }
 
             elif name == "order_create":
                 new_order = Order(
