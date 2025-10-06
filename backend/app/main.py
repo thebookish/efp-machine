@@ -6,6 +6,7 @@ from app.routers import slack_msg
 from app.routers import whatsapp
 from app.routers import bloomberg_msg
 from app.routers import instruments
+from app.routers import send_message
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
@@ -42,6 +43,7 @@ app.include_router(slack_msg.router)
 app.include_router(whatsapp.router)
 app.include_router(bloomberg_msg.router)
 app.include_router(instruments.router)
+app.include_router(send_message.router)
 
 @app.get("/")
 async def root():

@@ -13,9 +13,11 @@ class BloombergMessageBase(BaseModel):
     original_llm_json: Optional[Any] = None
     current_json: Optional[Any] = None
     is_edited: Optional[bool] = False
-    messageStatus: str = "received"   # NEW: received / rejected / approved
-    source: Optional[str] = None
     isTarget: Optional[bool] = False
+    source: Optional[str] = None
+    messageStatus: str = "received"   # NEW: received / rejected / approved
+   
+   
 
 
 class BloombergMessageCreate(BloombergMessageBase):
