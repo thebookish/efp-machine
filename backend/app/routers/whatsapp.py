@@ -56,6 +56,7 @@ async def whatsapp_webhook(request: Request, db: AsyncSession = Depends(get_db))
             current_json=None,
             is_edited=False,
             messageStatus="drafted",
+            source="whatsapp",
         )
 
         db.add(new_msg)
