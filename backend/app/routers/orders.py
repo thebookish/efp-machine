@@ -128,6 +128,7 @@ async def slack_events(request: Request, db: AsyncSession = Depends(get_db)):
     Handle Slack event callbacks.
     If it's a message event, check if it's trade-related via parse_single_message.
     If yes, store it in BloombergMessage table (status = drafted).
+    Ignores messages from the bot itself (e.g., U09H8GHQ4BF).
     """
     payload = await request.json()
     event_type = payload.get("type")
@@ -143,6 +144,10 @@ async def slack_events(request: Request, db: AsyncSession = Depends(get_db)):
             text = event.get("text")
             user = event.get("user")
             ts = event.get("ts")
+
+            # ---  Ignore bot messages (e.g., sent by the system or self) ---
+            if user == "U09H8GHQ4BF":
+                return {"status": "ignored", "reason": "self message"}
 
             # Build fake event+msg_obj for parser
             fake_event = {"eventId": payload.get("event_id")}

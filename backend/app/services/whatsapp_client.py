@@ -2,7 +2,7 @@ from twilio.rest import Client
 from app.config import settings
 
 # Twilio client
-twilio_client = Client('ACeb0700777fee4f0e60de0e7cb0bc40fd','ac6089c725cbe5fcd81565af056bf7a5')
+twilio_client = Client(settings.TWILIO_SID, settings.TWILIO_AUTH_TOKEN)
 TWILIO_WHATSAPP_NUMBER='+14155238886' 
 async def send_whatsapp_message(numbers: list[str], text: str) -> dict:
     """

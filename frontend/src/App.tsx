@@ -8,6 +8,7 @@ import PredictionPanel from "./components/PredictionPanel";
 import BlotterPanel from "./components/BlotterPanel";
 import UploadJson from "./components/bbg_upload";
 import Orders from "./components/Orders";
+import BloombergMessagesPanel from "./components/BloombergMessage";
 
 export default function App() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
            {/* <PredictionPanel/> */}
            {/* <Orders/> */}
           {/* <BlotterPanel /> */}
+          {/* <BloombergMessagesPanel></BloombergMessagesPanel> */}
         </div>
       </div>
     </div>

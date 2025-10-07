@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     ALLOW_ORIGINS: str = Field(default='http://localhost:5173')
     TIMEZONE_UK: str = Field(default='Europe/London')
     SLACK: Optional[str] = os.getenv("SLACK")
+    TWILIO_SID: Optional[str] = os.getenv("TWILIO_SID")
+    TWILIO_AUTH_TOKEN: Optional[str] = os.getenv("TWILIO_AUTH_TOKEN")
     class Config:
         env_file = '.env'
 settings = Settings()
