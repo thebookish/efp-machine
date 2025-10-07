@@ -1,4 +1,5 @@
 # backend/app/schemas.py
+from uuid import UUID
 from pydantic import BaseModel,Field
 from datetime import datetime, date
 from typing import Optional, Any, List
@@ -121,7 +122,7 @@ class OrderUpdate(BaseModel):
 
 
 class OrderResponse(OrderCreate):
-    orderId: str
+    orderId: UUID
     createdAt: datetime
 
     class Config:
