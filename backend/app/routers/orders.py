@@ -70,19 +70,46 @@ async def _push_order_update(order: Order):
     await manager.broadcast_json({"type": "order_update", "payload": order_dict})
 
 
-# --- WebSocket feed ---
+# # --- WebSocket feed ---
+# @router.websocket("/ws")
+# async def orders_ws(ws: WebSocket, db: AsyncSession = Depends(get_db)):
+#     await manager.connect(ws)
+#     try:
+#         await ws.send_json(
+#             {"type": "orders_list", "payload": _serialize_orders(await _fetch_orders(db))}
+#         )
+#         while True:
+#             await asyncio.sleep(60)
+#     except WebSocketDisconnect:
+#         await manager.disconnect(ws)
+#     except Exception:
+#         await manager.disconnect(ws)
+#         try:
+#             await ws.close()
+#         except Exception:
+#             pass
 @router.websocket("/ws")
 async def orders_ws(ws: WebSocket, db: AsyncSession = Depends(get_db)):
     await manager.connect(ws)
     try:
-        await ws.send_json(
-            {"type": "orders_list", "payload": _serialize_orders(await _fetch_orders(db))}
-        )
+        # Fetch orders
+        result = await db.execute(select(Order).order_by(Order.createdAt.desc()))
+        orders = result.scalars().all()
+
+        payload = [
+            OrderResponse.model_validate(o, from_attributes=True).model_dump(mode="json")
+            for o in orders
+        ]
+
+        await ws.send_json({"type": "orders_list", "payload": payload})
+
         while True:
             await asyncio.sleep(60)
+
     except WebSocketDisconnect:
         await manager.disconnect(ws)
-    except Exception:
+    except Exception as e:
+        print(f"⚠️ WebSocket error: {e}")
         await manager.disconnect(ws)
         try:
             await ws.close()
