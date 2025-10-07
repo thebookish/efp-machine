@@ -96,7 +96,7 @@ class OrderCreate(BaseModel):
     traderLegalEntityShortName: Optional[str] = None
     traderAlias: Optional[str] = None
     refPrice: Optional[float] = None
-    orderStatusHistory: List[OrderStatusEntry] = []
+    orderStatusHistory: Optional[List[OrderStatusEntry]] = None
     reminderEnabled: bool = False
     reminderCount: int = 0
     nextReminderDue: Optional[datetime] = None
