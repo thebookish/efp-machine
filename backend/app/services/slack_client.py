@@ -4,22 +4,61 @@ from app.config import settings
 
 client = WebClient(token=settings.SLACK)
 
-async def send_slack_message(targets: list[str], text: str) -> dict:
+from slack_sdk.web.async_client import AsyncWebClient
+from slack_sdk.errors import SlackApiError
+
+client = AsyncWebClient(token=settings.SLACK)
+
+async def send_slack_message(targets: list[str] | str, text: str) -> dict:
     """
-    Send a Slack message (preserving line breaks) to multiple channels or users.
+    Send messages (plain, markdown, or code-style multi-line) to Slack using blocks.
+    Automatically formats multi-line messages as code blocks for clean alignment.
     """
     if isinstance(targets, str):
         targets = [targets]
 
-    formatted_text = text.replace("\n", "\n")  # Slack interprets '\n' as line breaks
+    formatted_text = text.strip()
+
+    # Detect if the message spans multiple lines — format as code block
+    if "\n" in formatted_text:
+        formatted_text = f"```{formatted_text}```"
+
     results = []
+
     for t in targets:
         try:
-            response = client.chat_postMessage(channel=t, text=formatted_text)
-            results.append({"target": t, "ok": True, "ts": response["ts"]})
+            response = await client.chat_postMessage(
+                channel=t.strip(),
+                text=text,  # fallback plain text
+                blocks=[
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": formatted_text
+                        }
+                    }
+                ]
+            )
+
+            results.append({
+                "target": t,
+                "ok": True,
+                "ts": response.get("ts"),
+                "channel": response.get("channel")
+            })
+
         except SlackApiError as e:
+            results.append({
+                "target": t,
+                "ok": False,
+                "error": e.response.get("error", str(e))
+            })
+        except Exception as e:
             results.append({"target": t, "ok": False, "error": str(e)})
+
     return results
+
     
 async def list_slack_channels() -> dict:
     try:

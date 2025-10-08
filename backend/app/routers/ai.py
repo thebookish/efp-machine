@@ -24,16 +24,23 @@ CONVERSATIONS = {}
 SYSTEM_PROMPT = (
     "You are the EFP Machine assistant. "
     "If the user message starts with 'send', always call the broadcast_message tool. "
-    "Extract the message text (everything after 'send' and before 'to'), "
-    "and detect recipients (Slack channels/users or WhatsApp contacts) after 'to'. "
+"Extract the message text (everything after 'send' and before 'to'), even across multiple lines. "
+"Detect recipients strictly as follows: "
+"- If the recipient starts with '#' or matches a Slack channel ID pattern (like 'CXXXX'), it is a Slack target. "
+"- If it looks like a name or number, it is a WhatsApp contact. "
+"Never leave both recipient lists empty — if unsure, default to Slack when the name starts with '#'. "
     # "Never guess phone numbers: if unsure, just return the name string. "
     "For general queries, counts, or summaries about orders or Bloomberg messages "
     "(like 'how many orders', 'show me messages from Slack', 'any approved messages'), "
     "always call the natural_query_insight tool. "
     "Otherwise respond with the normal trade/order tools "
-    "(update_price, trade, blotter_add, blotter_remove, get_bbo, "
-    "order_list, order_create, order_edit, order_delete, order_summary). "
+    "( order_list, order_create, order_edit, order_delete, order_summary,predict_order_suggestion). "
     "Never guess or assume missing values. "
+"Always answer directly from available database records. "
+"Never provide summaries, estimates, or narrative explanations unless explicitly asked (e.g., 'summarize' or 'overview'). "
+"If no records match, respond clearly: 'No matching records found.' "
+"Do not rephrase or elaborate beyond the user’s exact request."
+
 )
 
 
@@ -276,24 +283,39 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
             elif name == "broadcast_message":
                 message_text = args["text"]
                 whatsapp_numbers = args.get("whatsapp_numbers", [])
+                slack_targets = args.get("slack_targets", [])
+
+                # --- Normalize types ---
                 if isinstance(whatsapp_numbers, str):
                     whatsapp_numbers = [whatsapp_numbers]
-
-                slack_targets = args.get("slack_targets", [])
                 if isinstance(slack_targets, str):
                     slack_targets = [slack_targets]
 
-                results = {"slack": [], "whatsapp": []} 
+                # --- Auto-separate by prefix ---
+                # Slack channels usually start with '#', WhatsApp targets are phone numbers or names
+                slack_targets = [t for t in slack_targets if t.startswith("#") or t.startswith("C") or t.startswith("U")]
+                whatsapp_numbers = [w for w in whatsapp_numbers if not (w.startswith("#") or w.startswith("C") or w.startswith("U"))]
 
+                results = {"slack": [], "whatsapp": []}
+
+                # --- Dispatch to Slack ---
                 if slack_targets:
-                    res = await send_slack_message(slack_targets, message_text)
-                    results["slack"].extend(res)
+                    try:
+                        slack_res = await send_slack_message(slack_targets, message_text)
+                        results["slack"].extend(slack_res)
+                    except Exception as e:
+                        results["slack"].append({"ok": False, "error": str(e)})
 
+                # --- Dispatch to WhatsApp ---
                 if whatsapp_numbers:
-                    res = await send_whatsapp_message(whatsapp_numbers, message_text)
-                    results["whatsapp"].extend(res)
+                    try:
+                        wp_res = await send_whatsapp_message(whatsapp_numbers, message_text)
+                        results["whatsapp"].extend(wp_res)
+                    except Exception as e:
+                        results["whatsapp"].append({"ok": False, "error": str(e)})
 
-                result = {"reply": "Broadcast completed", "results": results}
+                result = {"reply": f"Message sent!", "results": results}
+
 
             elif name == "daily_report_summary":
 
@@ -487,18 +509,18 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                     )
                     result = {"reply": summary}
 
-                # --- Polishing pass with GPT for natural tone ---
-                try:
-                    completion = client.chat.completions.create(
-                        model="gpt-4o-mini",
-                        messages=[
-                            {"role": "system", "content": "Rephrase this technical answer into a brief, natural reply in the tone of a professional trading assistant."},
-                            {"role": "user", "content": result["reply"]},
-                        ],
-                    )
-                    result["reply"] = completion.choices[0].message.content.strip()
-                except Exception:
-                    pass
+                # # --- Polishing pass with GPT for natural tone ---
+                # try:
+                #     completion = client.chat.completions.create(
+                #         model="gpt-4o-mini",
+                #         messages=[
+                #             {"role": "system", "content": "Rephrase this technical answer into a brief, natural reply in the tone of a professional trading assistant."},
+                #             {"role": "user", "content": result["reply"]},
+                #         ],
+                #     )
+                #     result["reply"] = completion.choices[0].message.content.strip()
+                # except Exception:
+                #     pass
 
 
             else:
