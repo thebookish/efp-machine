@@ -134,7 +134,7 @@ async def accept_message(event_id: str, updates: BloombergMessageUpdate, db: Asy
         if msg.current_json:  
             try:
                 parsed_orders = []
-                contractId = msg.current_json.get("instrument")
+                contractId = msg.current_json.get("contract")
                 strategy = msg.current_json.get("strategy")
                 basis = float(msg.current_json.get("basis", 0))
 
