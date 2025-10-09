@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import insert, select, cast, Date
@@ -93,7 +93,7 @@ async def order_worker(session_factory, batch_size=500, flush_interval=0.5):
                     "basis": item.basis,
                     "orderStatus": item.orderStatus or "active",
                     "orderStatusHistory": item.orderStatusHistory or [
-                        {"orderStatus": "accepted", "timestamp": str(uuid.uuid1())}
+                        {"orderStatus": "accepted", "timestamp": datetime.now(timezone.utc).isoformat()}
                     ],
                     "traderUuid": item.traderUuid,
                     "traderLegalEntityShortName": item.traderLegalEntityShortName,
