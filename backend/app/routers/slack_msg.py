@@ -32,8 +32,12 @@ async def get_users():
 @router.get("/destinations")
 async def get_slack_destinations():
     try:
-        channels = client.conversations_list(types="public_channel,private_channel").get("channels", [])
-        users = client.users_list().get("members", [])
+        # ✅ Await async Slack API calls
+        channels_resp = await client.conversations_list(types="public_channel,private_channel")
+        users_resp = await client.users_list()
+
+        channels = channels_resp.get("channels", [])
+        users = users_resp.get("members", [])
 
         results = []
 
@@ -56,5 +60,6 @@ async def get_slack_destinations():
                 })
 
         return {"destinations": results}
-    except HTTPException as e:
-        raise HTTPException(status_code=500, detail=f"Slack API error: {e.response['error']}")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Slack API error: {str(e)}")

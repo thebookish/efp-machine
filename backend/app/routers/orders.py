@@ -119,7 +119,7 @@ async def orders_ws(ws: WebSocket, db: AsyncSession = Depends(get_db)):
 # --- List orders ---
 @router.get("/list", response_model=list[OrderResponse])
 async def list_orders(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Order).order_by(Order.created_at.desc()))
+    result = await db.execute(select(Order).order_by(Order.createdAt.desc()))
     return result.scalars().all()
 
 @router.post("/slack/events")
