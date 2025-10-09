@@ -7,7 +7,7 @@ from app.deps import get_db
 from app.models import BloombergMessage, Order
 from app.schemas import BloombergMessageCreate, BloombergMessageResponse, BloombergMessageUpdate, OrderCreate
 from app.services.parse import parse_single_message
-from app.services.order_ingest import enqueue_order
+# from app.services.order_ingest import enqueue_order
 
 
 # --- WebSocket Manager ---
@@ -157,7 +157,7 @@ async def accept_message(event_id: str, updates: BloombergMessageUpdate, db: Asy
                     parsed_orders.append(order)
 
                 print(f"✅ Parsed {len(parsed_orders)} orders from edited JSON for {msg.eventId}")
-
+                from app.services.order_ingest import enqueue_order 
                 for order in parsed_orders:
                     await enqueue_order(order)
 
