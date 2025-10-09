@@ -229,7 +229,7 @@ async def update_order(order_id: str, updates: OrderUpdate, db: AsyncSession = D
             history = order.orderStatusHistory or []
             history.append({
                 "orderStatus": new_status,
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": datetime.now(timezone.utc)
             })
             order.orderStatusHistory = history
 
