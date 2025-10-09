@@ -138,7 +138,7 @@ async def accept_message(event_id: str, updates: BloombergMessageUpdate, db: Asy
                 strategy = msg.current_json.get("strategy")
                 basis = float(msg.current_json.get("basis", 0))
 
-                for o in msg.current_json.get("other", []):
+                for o in msg.current_json.get("entries", []):
                     order = OrderCreate(
                         eventId=msg.eventId,
                         linkedOrderID=msg.eventId,
