@@ -76,24 +76,6 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
             model="gpt-4o-mini",
             messages=CONVERSATIONS[session_id],
             tools=[
-                # Existing tools
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "order_list",
-                        "description": "Query orders with filters",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "contractId": {"type": "string"},
-                                "expiryDate": {"type": "string"},
-                                "state": {"type": "string"},
-                                "orderType": {"type": "string"},
-                                "buySell": {"type": "string"},
-                            },
-                        },
-                    },
-                },
 
                 {
                     "type": "function",
@@ -185,17 +167,6 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
   }
 }
 ,
-{
-  "type": "function",
-  "function": {
-    "name": "daily_report_summary",
-    "description": "Summarize today's or yesterday's orders and spreads in natural language",
-    "parameters": {
-      "type": "object",
-      "properties": {},
-    },
-  },
-},
 
 {
   "type": "function",
@@ -317,47 +288,6 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                 result = {"reply": f"Message sent!", "results": results}
 
 
-            elif name == "daily_report_summary":
-
-                tz = timezone.utc
-                today = datetime.now(tz)
-                start = today - timedelta(days=1)
-                end = today
-
-                stmt = (
-                    select(
-                        func.count(Order.orderId),
-                        func.avg(Order.price),
-                        func.min(Order.price),
-                        func.max(Order.price),
-                        func.avg(Order.basis),
-                    )
-                    .where(and_(Order.createdAt >= start, Order.createdAt < end))
-                )
-                count_, avg_px, min_px, max_px, avg_basis = (await db.execute(stmt)).one()
-
-                # per contract summary
-                per_contract_stmt = (
-                    select(Order.contractId, func.count(Order.orderId), func.avg(Order.price))
-                    .where(and_(Order.createdAt >= start, Order.createdAt < end))
-                    .group_by(Order.contractId)
-                )
-                per_contract = (await db.execute(per_contract_stmt)).all()
-
-                summary_lines = [
-                    f"🗓️ **Order Summary**",
-                    f"- Total orders: {count_}",
-                    f"- Avg price: {round(avg_px or 0, 2)}",
-                    f"- Price range: {round(min_px or 0, 2)} – {round(max_px or 0, 2)}",
-                    f"- Avg basis: {round(avg_basis or 0, 2)}",
-                    "",
-                    "📊 **Per Contract:**",
-                ]
-                for c, cnt, avgp in per_contract:
-                    summary_lines.append(f"• {c}: {cnt} orders, avg price {round(avgp or 0, 2)}")
-
-                result = {"reply": "\n".join(summary_lines)}
-
             elif name == "predict_order_suggestion":
                 contract = args["contractId"]
                 expiry = args["expiryDate"]
@@ -383,12 +313,39 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
             elif name == "natural_query_insight":
                 question = args.get("question", "").lower()
 
-                # --- Detect question intent ---
-                wants_list = any(k in question for k in ["show", "list", "display", "see", "give me", "messages from"])
-                wants_yesno = any(k in question for k in ["do we have", "is there", "any message"])
-                asks_top_source = "which" in question and "source" in question and "most" in question
+                # --- Detect intent ---
+                wants_count = "how many" in question or "count" in question
+                wants_list = any(k in question for k in ["show", "list", "display", "see", "messages from", "orders"])
+                wants_yesno = any(k in question for k in ["do we have", "is there", "any order", "any message"])
+                asks_top_source = "which" in question and ("source" in question or "contract" in question) and "most" in question
+                wants_avg = "average" in question or "avg" in question
+                wants_high = "highest" in question or "max" in question
+                wants_low = "lowest" in question or "min" in question
 
-                # --- Detect source (Slack, WhatsApp, Bloomberg) ---
+                # --- Detect entity ---
+                is_order_query = "order" in question or "orders" in question
+                is_message_query = "message" in question or "messages" in question
+
+                # --- Detect filters ---
+                status_filter = None
+                if "approved" in question:
+                    status_filter = "approved"
+                elif "drafted" in question:
+                    status_filter = "drafted"
+                elif "received" in question:
+                    status_filter = "received"
+                elif "active" in question:
+                    status_filter = "active"
+                elif "rejected" in question:
+                    status_filter = "rejected"
+
+                side_filter = None
+                if "buy" in question:
+                    side_filter = "buy"
+                elif "sell" in question:
+                    side_filter = "sell"
+
+                # --- Source filters (for messages) ---
                 source_filter = None
                 if "slack" in question:
                     source_filter = "slack"
@@ -396,13 +353,21 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                     source_filter = "whatsapp"
                 elif "bloomberg" in question:
                     source_filter = "bloomberg"
+                elif "symphony" in question:
+                    source_filter = "symphony"
 
-                # --- Time filter detection ---
+                # --- Contract filter (for orders) ---
+                contract_filter = None
+                for sym in ["sx5e", "sx7e", "sxpe", "sxee"]:
+                    if sym in question:
+                        contract_filter = sym.upper()
+                        break
+
+                # --- Time filters ---
                 tz = timezone.utc
                 now = datetime.now(tz)
                 start_time = None
                 end_time = now
-
                 if "today" in question:
                     start_time = datetime(now.year, now.month, now.day, tzinfo=tz)
                 elif "yesterday" in question:
@@ -413,114 +378,157 @@ async def chat_route(query: dict, db: AsyncSession = Depends(get_db)):
                 elif "last 2 days" in question:
                     start_time = now - timedelta(days=2)
 
-                # --- Base metrics ---
-                total_orders = await db.scalar(select(func.count(Order.orderId)))
-                total_msgs = await db.scalar(select(func.count(BloombergMessage.eventId)))
-                approved_msgs = await db.scalar(
-                    select(func.count(BloombergMessage.eventId)).where(BloombergMessage.messageStatus == "approved")
-                )
-                slack_msgs = await db.scalar(
-                    select(func.count(BloombergMessage.eventId)).where(BloombergMessage.source == "slack")
-                )
-                whatsapp_msgs = await db.scalar(
-                    select(func.count(BloombergMessage.eventId)).where(BloombergMessage.source == "whatsapp")
-                )
-                bloomberg_msgs = await db.scalar(
-                    select(func.count(BloombergMessage.eventId)).where(BloombergMessage.source == "bloomberg")
-                )
-
-                source_counts = {
-                    "slack": slack_msgs or 0,
-                    "whatsapp": whatsapp_msgs or 0,
-                    "bloomberg": bloomberg_msgs or 0,
-                }
-
-                # --- 1️⃣ Which source has most messages ---
-                if asks_top_source:
-                    if total_msgs == 0:
-                        result = {"reply": "No messages available from any source yet."}
-                    else:
-                        top_source = max(source_counts, key=source_counts.get)
-                        result = {"reply": f"{top_source.title()} has the most messages with {source_counts[top_source]} entries."}
-
-                # --- 2️⃣ Yes/No style queries (do we have any messages from X?) ---
-                elif wants_yesno and source_filter:
-                    count_stmt = select(func.count(BloombergMessage.eventId)).where(BloombergMessage.source == source_filter)
-                    if start_time:
-                        count_stmt = count_stmt.where(
-                            and_(BloombergMessage.created_at >= start_time, BloombergMessage.created_at < end_time)
-                        )
-                    count = await db.scalar(count_stmt) or 0
-
-                    if count > 0:
-                        result = {"reply": f"Yes — there are {count} message(s) from {source_filter.title()}."}
-                    else:
-                        result = {"reply": f"No — no messages from {source_filter.title()} in that time range."}
-
-                # --- 3️⃣ Listing messages (show/list/display) ---
-                elif wants_list or "messages from" in question:
-                    stmt = select(BloombergMessage).order_by(BloombergMessage.created_at.desc()).limit(10)
-
-                    if source_filter:
-                        stmt = stmt.where(BloombergMessage.source == source_filter)
-                    if "approved" in question:
-                        stmt = stmt.where(BloombergMessage.messageStatus == "approved")
-                    elif "drafted" in question:
-                        stmt = stmt.where(BloombergMessage.messageStatus == "drafted")
-
-                    if start_time:
-                        stmt = stmt.where(and_(BloombergMessage.created_at >= start_time, BloombergMessage.created_at < end_time))
-
-                    rows = await db.execute(stmt)
-                    msgs = rows.scalars().all()
-
-                    if not msgs:
-                        time_phrase = ""
-                        if "today" in question:
-                            time_phrase = " today"
-                        elif "yesterday" in question:
-                            time_phrase = " yesterday"
-                        elif "week" in question:
-                            time_phrase = " this week"
-                        result = {"reply": f"No {source_filter or ''} messages found{time_phrase}."}
-                    else:
-                        formatted = "\n".join(
-                            [f"- [{m.source}] {m.trader_alias or m.trader_uuid}: {m.originalMessage}"
-                            for m in msgs]
-                        )
-                        time_phrase = ""
-                        if "today" in question:
-                            time_phrase = " from today"
-                        elif "yesterday" in question:
-                            time_phrase = " from yesterday"
-                        elif "week" in question:
-                            time_phrase = " from this week"
-
-                        result = {"reply": f"Here are the latest {source_filter or 'recent'} messages{time_phrase}:\n{formatted}"}
-
-                # --- 4️⃣ Default numeric summary ---
-                else:
-                    summary = (
-                        f"📊 Snapshot Summary:\n"
-                        f"- Total Orders: {total_orders}\n"
-                        f"- Total Messages: {total_msgs}\n"
-                        f"- Approved Messages: {approved_msgs}\n"
-                        f"- Slack: {slack_msgs}, WhatsApp: {whatsapp_msgs}, Bloomberg: {bloomberg_msgs}"
+                # =======================
+                # --- MESSAGE QUERIES ---
+                # =======================
+                if is_message_query:
+                    total_msgs = await db.scalar(select(func.count(BloombergMessage.eventId)))
+                    approved_msgs = await db.scalar(
+                        select(func.count(BloombergMessage.eventId)).where(BloombergMessage.messageStatus == "approved")
                     )
-                    result = {"reply": summary}
+                    drafted_msgs = await db.scalar(
+                        select(func.count(BloombergMessage.eventId)).where(BloombergMessage.messageStatus == "drafted")
+                    )
+                    received_msgs = await db.scalar(
+                        select(func.count(BloombergMessage.eventId)).where(BloombergMessage.messageStatus == "received")
+                    )
+                    slack_msgs = await db.scalar(
+                        select(func.count(BloombergMessage.eventId)).where(BloombergMessage.source == "slack")
+                    )
+                    whatsapp_msgs = await db.scalar(
+                        select(func.count(BloombergMessage.eventId)).where(BloombergMessage.source == "whatsapp")
+                    )
+                    bloomberg_msgs = await db.scalar(
+                        select(func.count(BloombergMessage.eventId)).where(BloombergMessage.source == "bloomberg")
+                    )
+                    symphony_msgs = await db.scalar(
+                        select(func.count(BloombergMessage.eventId)).where(BloombergMessage.source == "symphony")
+                    )
 
-                # # --- Polishing pass with GPT for natural tone ---
-                # try:
-                #     completion = client.chat.completions.create(
-                #         model="gpt-4o-mini",
-                #         messages=[
-                #             {"role": "system", "content": "Rephrase this technical answer into a brief, natural reply in the tone of a professional trading assistant."},
-                #             {"role": "user", "content": result["reply"]},
-                #         ],
-                #     )
-                #     result["reply"] = completion.choices[0].message.content.strip()
-                # except Exception:
-                #     pass
+                    if wants_count:
+                        count_stmt = select(func.count(BloombergMessage.eventId))
+                        if status_filter:
+                            count_stmt = count_stmt.where(BloombergMessage.messageStatus == status_filter)
+                        if source_filter:
+                            count_stmt = count_stmt.where(BloombergMessage.source == source_filter)
+                        if start_time:
+                            count_stmt = count_stmt.where(and_(BloombergMessage.created_at >= start_time, BloombergMessage.created_at < end_time))
+                        count = await db.scalar(count_stmt) or 0
+                        result = {"reply": f"There are {count} {status_filter or ''} {source_filter or ''} messages.".strip()}
+
+                    elif wants_list:
+                        stmt = select(BloombergMessage).order_by(BloombergMessage.created_at.desc()).limit(10)
+                        if status_filter:
+                            stmt = stmt.where(BloombergMessage.messageStatus == status_filter)
+                        if source_filter:
+                            stmt = stmt.where(BloombergMessage.source == source_filter)
+                        if start_time:
+                            stmt = stmt.where(and_(BloombergMessage.created_at >= start_time, BloombergMessage.created_at < end_time))
+                        rows = await db.execute(stmt)
+                        msgs = rows.scalars().all()
+                        if not msgs:
+                            result = {"reply": "No matching messages found."}
+                        else:
+                            formatted = "\n".join(
+                                [f"- [{m.source}] {m.trader_alias or m.trader_uuid}: {m.originalMessage}" for m in msgs]
+                            )
+                            result = {"reply": f"Here are the latest {status_filter or source_filter or 'recent'} messages:\n{formatted}"}
+
+                    elif wants_yesno and source_filter:
+                        count_stmt = select(func.count(BloombergMessage.eventId)).where(BloombergMessage.source == source_filter)
+                        if start_time:
+                            count_stmt = count_stmt.where(and_(BloombergMessage.created_at >= start_time, BloombergMessage.created_at < end_time))
+                        count = await db.scalar(count_stmt) or 0
+                        result = {"reply": f"Yes — {count} message(s) from {source_filter.title()}." if count else f"No — none from {source_filter.title()}."}
+
+                    elif asks_top_source:
+                        counts = {
+                            "Slack": slack_msgs or 0,
+                            "WhatsApp": whatsapp_msgs or 0,
+                            "Bloomberg": bloomberg_msgs or 0,
+                            "Symphony": symphony_msgs or 0,
+                        }
+                        top_source = max(counts, key=counts.get) if sum(counts.values()) else None
+                        result = {"reply": f"{top_source} has the most messages with {counts[top_source]} entries." if top_source else "No messages found."}
+
+                    else:
+                        result = {"reply": f"There are {total_msgs} total messages."}
+
+                # ====================
+                # --- ORDER QUERIES ---
+                # ====================
+                elif is_order_query:
+                    total_orders = await db.scalar(select(func.count(Order.orderId)))
+
+                    # --- Count queries ---
+                    if wants_count:
+                        stmt = select(func.count(Order.orderId))
+                        if contract_filter:
+                            stmt = stmt.where(Order.contractId.ilike(f"%{contract_filter}%"))
+                        if side_filter:
+                            stmt = stmt.where(Order.side.ilike(f"%{side_filter}%"))
+                        if status_filter:
+                            stmt = stmt.where(Order.orderStatus.ilike(f"%{status_filter}%"))
+                        if start_time:
+                            stmt = stmt.where(and_(Order.createdAt >= start_time, Order.createdAt < end_time))
+                        count = await db.scalar(stmt) or 0
+                        result = {"reply": f"There are {count} {status_filter or ''} {contract_filter or ''} {side_filter or ''} orders.".strip()}
+
+                    # --- Analytics queries (avg/high/low) ---
+                    elif wants_avg or wants_high or wants_low:
+                        metric = "price" if "price" in question else "basis"
+                        column = getattr(Order, metric)
+                        base_stmt = select(
+                            func.avg(column) if wants_avg else func.max(column) if wants_high else func.min(column)
+                        )
+                        if contract_filter:
+                            base_stmt = base_stmt.where(Order.contractId.ilike(f"%{contract_filter}%"))
+                        if start_time:
+                            base_stmt = base_stmt.where(and_(Order.createdAt >= start_time, Order.createdAt < end_time))
+                        value = await db.scalar(base_stmt)
+                        if value is None:
+                            result = {"reply": f"No matching orders found to calculate {metric}."}
+                        else:
+                            desc = "average" if wants_avg else "highest" if wants_high else "lowest"
+                            result = {"reply": f"The {desc} {metric} for {contract_filter or 'all contracts'} is {round(value, 2)}."}
+
+                    # --- Top contract (most orders) ---
+                    elif asks_top_source:
+                        stmt = select(Order.contractId, func.count(Order.orderId)).group_by(Order.contractId)
+                        data = (await db.execute(stmt)).all()
+                        if not data:
+                            result = {"reply": "No orders found."}
+                        else:
+                            top = max(data, key=lambda x: x[1])
+                            result = {"reply": f"{top[0]} has the most orders with {top[1]} entries."}
+
+                    # --- List queries ---
+                    elif wants_list:
+                        stmt = select(Order).order_by(Order.createdAt.desc()).limit(10)
+                        if contract_filter:
+                            stmt = stmt.where(Order.contractId.ilike(f"%{contract_filter}%"))
+                        if side_filter:
+                            stmt = stmt.where(Order.side.ilike(f"%{side_filter}%"))
+                        if start_time:
+                            stmt = stmt.where(and_(Order.createdAt >= start_time, Order.createdAt < end_time))
+                        rows = await db.execute(stmt)
+                        orders = rows.scalars().all()
+                        if not orders:
+                            result = {"reply": "No matching orders found."}
+                        else:
+                            formatted = "\n".join(
+                                [f"- {o.contractId} {o.expiryDate} {o.side} {o.price}/{o.basis} ({o.orderStatus})" for o in orders]
+                            )
+                            result = {"reply": f"Here are recent orders:\n{formatted}"}
+
+                    else:
+                        result = {"reply": f"There are {total_orders} total orders."}
+
+                # --- Fallback ---
+                else:
+                    total_orders = await db.scalar(select(func.count(Order.orderId)))
+                    total_msgs = await db.scalar(select(func.count(BloombergMessage.eventId)))
+                    result = {"reply": f"There are {total_orders} orders and {total_msgs} messages currently in the system."}
 
 
             else:
