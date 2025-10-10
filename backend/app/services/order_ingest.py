@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import insert, select, cast, Date
 from app.models import Order, User, Instrument
 from app.schemas import OrderCreate
-from app.routers.bloomberg_msg import message_manager 
+from app.routers.orders import manager 
 ORDER_QUEUE = asyncio.Queue(maxsize=10000)  # prevents memory runaway
 
 
@@ -123,7 +123,7 @@ async def order_worker(session_factory, batch_size=500, flush_interval=0.5):
 
         # ✅ Notify clients of new orders after commit
         for order_dict in dicts:
-            await message_manager .broadcast_json({
+            await manager.broadcast_json({
                 "type": "order_created",
                 "payload": order_dict
             })
